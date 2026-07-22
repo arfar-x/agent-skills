@@ -273,11 +273,18 @@ class JiraClient:
         items_key: Optional[str] = None,
         max_results_total: Optional[int] = None,
         page_size: int = 50,
+        method: str = "GET",
     ) -> List[Dict[str, Any]]:
         """Transparently walk paginated Jira endpoints and return all items.
 
         Handles both the "startAt/maxResults/total" style (search, worklogs,
         comments) and the "isLast" style (agile boards/sprints).
+
+        ``method="POST"`` sends ``params`` as the JSON body instead of the
+        query string -- Jira's ``/search`` endpoint supports this, and it
+        avoids putting a JQL query in the URL, which some reverse
+        proxies/WAFs in front of self-hosted Jira instances reject (403)
+        even for otherwise-valid, correctly-authenticated requests.
         """
         collected: List[Dict[str, Any]] = []
         start_at = int(params.get("startAt", 0))
@@ -293,7 +300,10 @@ class JiraClient:
             params["startAt"] = start_at
             params["maxResults"] = batch_size
 
-            payload = self._request("GET", path, params=params)
+            if method == "POST":
+                payload = self._request("POST", path, json_body=params)
+            else:
+                payload = self._request("GET", path, params=params)
             items = payload.get(items_key, payload) if items_key else payload.get("values", [])
             collected.extend(items)
 
@@ -428,10 +438,10 @@ class JiraClient:
 
         params: Dict[str, Any] = {
             "jql": jql,
-            "fields": ",".join(fields or DEFAULT_ISSUE_FIELDS),
+            "fields": list(fields or DEFAULT_ISSUE_FIELDS),
         }
         if expand:
-            params["expand"] = ",".join(expand)
+            params["expand"] = list(expand)
 
         raw_issues = self._paginate(
             f"{self.API_V2}/search",
@@ -439,6 +449,7 @@ class JiraClient:
             items_key="issues",
             max_results_total=max_results,
             page_size=50,
+            method="POST",
         )
         return [self._build_issue(raw) for raw in raw_issues]
 
