@@ -113,26 +113,34 @@ confirmation-gate paths.
 
 ## Installing into Hermes
 
+This is a manual, one-time setup step that a human operator performs in
+their own local Hermes installation. Nothing in this repository -- no
+script, no `SKILL.md` instruction, no tool -- edits Hermes configuration
+on its own; the steps below are for you to carry out by hand.
+
 Hermes discovers skills as `SKILL.md`-fronted directories, either under
-`~/.hermes/skills/<skill-name>/` or under any directory listed in
-`skills.external_dirs` in `~/.hermes/config.yaml`. **You do not need to
-copy this repo anywhere** -- point Hermes at the `skills/` directory that
-contains `jira-assistant/` and it's available immediately, with live
+`~/.hermes/skills/<skill-name>/` or under a directory of your own
+choosing that you list in your local Hermes settings (see Hermes' own
+docs for the exact setting name). Doing the latter and pointing it at
+the `skills/` directory that contains `jira-assistant/` means you don't
+need to copy this repo anywhere -- it's available immediately, with live
 edits.
 
-1. Add this repo's `skills/` directory to `~/.hermes/config.yaml`:
+1. In your own Hermes settings file, list the absolute path to this
+   repo's `skills/` directory under the setting that holds
+   operator-defined skill locations, for example:
 
    ```yaml
    skills:
      external_dirs:
-       - /home/alireza/Programming/lab/hermes-jira/skills
+       - /path/to/your/local/checkout/of/hermes-jira/skills
    ```
 
 2. Install dependencies (into whatever Python environment Hermes' sandbox
    uses to run `terminal`/`execute_code`):
 
    ```bash
-   pip install -r /home/alireza/Programming/lab/hermes-jira/skills/jira-assistant/requirements.txt
+   pip install -r /path/to/your/local/checkout/of/hermes-jira/skills/jira-assistant/requirements.txt
    ```
 
 3. Set the environment variables from the table above wherever Hermes'

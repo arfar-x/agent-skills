@@ -15,7 +15,7 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Mapping, Optional
 
 logger = logging.getLogger("jira_skill.auth")
 
@@ -67,22 +67,22 @@ class JiraConfig:
         return f"Basic auth (user={self.username})"
 
 
-def _env(name: str, default: Optional[str] = None) -> Optional[str]:
-    value = os.environ.get(name, default)
+def _env(source: Mapping[str, str], name: str, default: Optional[str] = None) -> Optional[str]:
+    value = source.get(name, default)
     if value is not None:
         value = value.strip()
     return value or default
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
+def _env_bool(source: Mapping[str, str], name: str, default: bool) -> bool:
+    raw = source.get(name)
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
+def _env_float(source: Mapping[str, str], name: str, default: float) -> float:
+    raw = source.get(name)
     if raw is None or not raw.strip():
         return default
     try:
@@ -91,8 +91,8 @@ def _env_float(name: str, default: float) -> float:
         raise ConfigurationError(f"Environment variable {name}={raw!r} is not a valid number") from exc
 
 
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name)
+def _env_int(source: Mapping[str, str], name: str, default: int) -> int:
+    raw = source.get(name)
     if raw is None or not raw.strip():
         return default
     try:
@@ -101,12 +101,12 @@ def _env_int(name: str, default: int) -> int:
         raise ConfigurationError(f"Environment variable {name}={raw!r} is not a valid integer") from exc
 
 
-def load_config(env: Optional[dict] = None) -> JiraConfig:
+def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
     """Load and validate Jira configuration from environment variables.
 
     Args:
-        env: Optional explicit mapping to read from instead of
-            ``os.environ`` (primarily for testing).
+        env: Optional explicit mapping to read from instead of the
+            process environment (primarily for testing).
 
     Raises:
         ConfigurationError: If required variables are missing or
@@ -123,15 +123,9 @@ def load_config(env: Optional[dict] = None) -> JiraConfig:
         JIRA_VERIFY_SSL (optional, default true).
         JIRA_AUTO_CONFIRM_WRITES (optional, default false).
     """
-    if env is not None:
-        original_environ = os.environ
-        os.environ = dict(env)  # type: ignore[assignment]
-        try:
-            return load_config()
-        finally:
-            os.environ = original_environ  # type: ignore[assignment]
+    source: Mapping[str, str] = env if env is not None else os.environ
 
-    base_url = _env("JIRA_BASE_URL")
+    base_url = _env(source, "JIRA_BASE_URL")
     if not base_url:
         raise ConfigurationError(
             "JIRA_BASE_URL is not set. Configure it to the root URL of your "
@@ -143,7 +137,7 @@ def load_config(env: Optional[dict] = None) -> JiraConfig:
             f"JIRA_BASE_URL={base_url!r} must start with http:// or https://"
         )
 
-    auth_mode_raw = (_env("JIRA_AUTH_MODE", "basic") or "basic").lower()
+    auth_mode_raw = (_env(source, "JIRA_AUTH_MODE", "basic") or "basic").lower()
     try:
         auth_mode = AuthMode(auth_mode_raw)
     except ValueError as exc:
@@ -151,9 +145,9 @@ def load_config(env: Optional[dict] = None) -> JiraConfig:
             f"JIRA_AUTH_MODE={auth_mode_raw!r} is invalid. Must be 'basic' or 'pat'."
         ) from exc
 
-    username = _env("JIRA_USERNAME")
-    password = _env("JIRA_PASSWORD")
-    api_token = _env("JIRA_API_TOKEN")
+    username = _env(source, "JIRA_USERNAME")
+    password = _env(source, "JIRA_PASSWORD")
+    api_token = _env(source, "JIRA_API_TOKEN")
 
     if auth_mode is AuthMode.BASIC:
         missing = [
@@ -178,10 +172,10 @@ def load_config(env: Optional[dict] = None) -> JiraConfig:
         username=username,
         password=password,
         api_token=api_token,
-        timeout_seconds=_env_float("JIRA_TIMEOUT_SECONDS", 30.0),
-        max_retries=_env_int("JIRA_MAX_RETRIES", 3),
-        verify_ssl=_env_bool("JIRA_VERIFY_SSL", True),
-        auto_confirm_writes=_env_bool("JIRA_AUTO_CONFIRM_WRITES", False),
+        timeout_seconds=_env_float(source, "JIRA_TIMEOUT_SECONDS", 30.0),
+        max_retries=_env_int(source, "JIRA_MAX_RETRIES", 3),
+        verify_ssl=_env_bool(source, "JIRA_VERIFY_SSL", True),
+        auto_confirm_writes=_env_bool(source, "JIRA_AUTO_CONFIRM_WRITES", False),
     )
     logger.info(
         "Loaded Jira configuration: base_url=%s auth=%s auto_confirm_writes=%s",
