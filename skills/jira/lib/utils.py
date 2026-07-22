@@ -6,6 +6,7 @@ across tool modules (each tool should stay a thin wrapper).
 
 from __future__ import annotations
 
+import datetime as _dt
 import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -65,6 +66,76 @@ def parse_duration_to_seconds(duration: str) -> int:
         raise InvalidDurationError(f"Duration {duration!r} evaluates to zero seconds.")
 
     return int(total_seconds)
+
+
+class InvalidDateError(ValueError):
+    """Raised when a date/relative-date string cannot be parsed."""
+
+
+_RELATIVE_DATE_RE = re.compile(r"^-?(?P<amount>\d+)(?P<unit>[mhdw])$", re.IGNORECASE)
+
+_RELATIVE_UNIT_SECONDS = {"m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
+
+
+def is_relative_jql_date(value: str) -> bool:
+    """Return whether ``value`` is a JQL-style relative date (e.g. ``"-14d"``)."""
+    return bool(_RELATIVE_DATE_RE.match(value.strip()))
+
+
+def jql_date_literal(value: str) -> str:
+    """Format ``value`` for interpolation into a JQL date comparison.
+
+    Relative dates (``-14d``) are JQL keywords and must appear bare;
+    absolute dates/datetimes must be quoted string literals.
+    """
+    value = value.strip()
+    return value if is_relative_jql_date(value) else f'"{value}"'
+
+
+def parse_jql_date(value: str, *, now: Optional[_dt.datetime] = None) -> _dt.datetime:
+    """Parse a JQL-style relative date (``"-14d"``, ``"-2w"``) or an ISO
+    date/datetime (``"2024-06-01"``, ``"2024-06-01T00:00:00+00:00"``) into a
+    timezone-aware UTC datetime.
+
+    Raises:
+        InvalidDateError: If ``value`` matches neither format.
+    """
+    now = now or _dt.datetime.now(_dt.timezone.utc)
+    stripped = value.strip()
+    match = _RELATIVE_DATE_RE.match(stripped)
+    if match:
+        amount = int(match.group("amount"))
+        unit_seconds = _RELATIVE_UNIT_SECONDS[match.group("unit").lower()]
+        return now - _dt.timedelta(seconds=amount * unit_seconds)
+    try:
+        parsed = _dt.datetime.fromisoformat(stripped.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise InvalidDateError(
+            f"Could not parse date {value!r}. Expected a relative JQL date "
+            "(e.g. '-14d', '-2w') or an ISO date (e.g. '2024-06-01')."
+        ) from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed
+
+
+def parse_jira_timestamp(value: str) -> _dt.datetime:
+    """Parse a Jira REST timestamp (e.g. ``"2024-06-10T09:00:00.000+0000"``)
+    into a timezone-aware datetime.
+
+    Raises:
+        InvalidDateError: If ``value`` is empty or doesn't match Jira's
+            known timestamp formats.
+    """
+    if not value:
+        raise InvalidDateError("Empty Jira timestamp.")
+    normalized = value[:-1] + "+0000" if value.endswith("Z") else value
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"):
+        try:
+            return _dt.datetime.strptime(normalized, fmt)
+        except ValueError:
+            continue
+    raise InvalidDateError(f"Could not parse Jira timestamp {value!r}.")
 
 
 def normalize_jql_for_user(jql_fragment: str, current_user_token: str = "currentUser()") -> str:

@@ -1,12 +1,18 @@
+import datetime as dt
+
 import pytest
 
 from lib.models import Issue, IssueLink
 from lib.utils import (
+    InvalidDateError,
     InvalidDurationError,
     adf_to_plain_text,
     blocking_reasons,
     is_issue_blocked,
+    jql_date_literal,
     parse_duration_to_seconds,
+    parse_jira_timestamp,
+    parse_jql_date,
     safe_get,
 )
 
@@ -114,3 +120,48 @@ def test_blocking_reasons_unrelated_link_ignored():
     )
     issue = _issue(status="To Do", links=[link])
     assert blocking_reasons(issue) == []
+
+
+_NOW = dt.datetime(2026, 7, 22, 12, 0, tzinfo=dt.timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "value, expected_delta_seconds",
+    [
+        ("-14d", 14 * 86400),
+        ("-2w", 2 * 7 * 86400),
+        ("-1d", 86400),
+        ("-30m", 30 * 60),
+        ("-6h", 6 * 3600),
+    ],
+)
+def test_parse_jql_date_relative(value, expected_delta_seconds):
+    parsed = parse_jql_date(value, now=_NOW)
+    assert parsed == _NOW - dt.timedelta(seconds=expected_delta_seconds)
+
+
+def test_parse_jql_date_absolute():
+    assert parse_jql_date("2026-07-01") == dt.datetime(2026, 7, 1, tzinfo=dt.timezone.utc)
+
+
+def test_parse_jql_date_rejects_garbage():
+    with pytest.raises(InvalidDateError):
+        parse_jql_date("not-a-date")
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [("-14d", "-14d"), ("2026-07-01", '"2026-07-01"')],
+)
+def test_jql_date_literal_quotes_only_absolute_dates(value, expected):
+    assert jql_date_literal(value) == expected
+
+
+def test_parse_jira_timestamp_with_milliseconds():
+    parsed = parse_jira_timestamp("2026-07-10T09:00:00.000+0000")
+    assert parsed == dt.datetime(2026, 7, 10, 9, 0, tzinfo=dt.timezone.utc)
+
+
+def test_parse_jira_timestamp_rejects_empty():
+    with pytest.raises(InvalidDateError):
+        parse_jira_timestamp("")

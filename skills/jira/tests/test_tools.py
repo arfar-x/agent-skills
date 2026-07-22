@@ -1,11 +1,28 @@
 from unittest.mock import MagicMock, patch
 
 from lib.auth import JiraConfig
-from lib.models import Comment, Issue, IssueLink, Sprint, Worklog
-from tools import blockers, issue_summary, my_work, search, sprint, transition, worklog
+from lib.models import Comment, Issue, IssueLink, Sprint, User, Worklog
+from tools import (
+    blockers,
+    issue_summary,
+    list_fields,
+    my_work,
+    search,
+    sprint,
+    transition,
+    worklog,
+    worklog_report,
+)
 
 
-def _issue(key="PAY-1", status="To Do", links=None, priority="High", updated="2026-07-20"):
+def _issue(
+    key="PAY-1",
+    status="To Do",
+    links=None,
+    priority="High",
+    updated="2026-07-20",
+    original_estimate_seconds=None,
+):
     return Issue(
         key=key,
         summary="Fix bug",
@@ -18,6 +35,7 @@ def _issue(key="PAY-1", status="To Do", links=None, priority="High", updated="20
         created="2026-07-01",
         due_date=None,
         links=links or [],
+        original_estimate_seconds=original_estimate_seconds,
     )
 
 
@@ -93,6 +111,24 @@ def test_search_returns_count_and_issues():
     assert result["issues"][0]["key"] == "PAY-1"
 
 
+def test_search_requests_default_fields_plus_extra():
+    mock_client = MagicMock()
+    mock_client.search.return_value = []
+    with patch("tools.search.get_client", return_value=mock_client):
+        search.search("project = PAY", fields=["customfield_10056"])
+    _, kwargs = mock_client.search.call_args
+    assert "customfield_10056" in kwargs["fields"]
+    assert "summary" in kwargs["fields"]  # a default field is still requested
+
+
+def test_list_fields_returns_client_result():
+    mock_client = MagicMock()
+    mock_client.list_fields.return_value = [{"id": "summary", "name": "Summary", "custom": False}]
+    with patch("tools.list_fields.get_client", return_value=mock_client):
+        result = list_fields.list_fields()
+    assert result == [{"id": "summary", "name": "Summary", "custom": False}]
+
+
 def test_worklog_requires_confirmation_by_default():
     mock_client = MagicMock()
     mock_client.config = _fake_config(auto_confirm=False)
@@ -152,6 +188,50 @@ def test_transition_executes_when_confirmed():
         result = transition.transition("PAY-1", "Review", confirm=True)
     assert result["confirmed"] is True
     assert result["transitioned_to"] == "Review"
+
+
+def test_worklog_report_aggregates_within_window_only():
+    mock_client = MagicMock()
+    mock_client.get_current_user.return_value = User(account_id="alice", display_name="Alice")
+    mock_client.search.return_value = [_issue(original_estimate_seconds=3600)]
+    mock_client.get_worklogs.return_value = [
+        Worklog("1", "Alice", "2h", 7200, "in range", "2026-07-20T09:00:00.000+0000"),
+        Worklog("2", "Alice", "1h", 3600, "too old", "2026-06-01T09:00:00.000+0000"),
+        Worklog("3", "Bob", "3h", 10800, "not mine", "2026-07-20T09:00:00.000+0000"),
+    ]
+    with patch("tools.worklog_report.get_client", return_value=mock_client):
+        result = worklog_report.worklog_report(since="2026-07-01")
+
+    assert result["issue_count"] == 1
+    assert result["total_logged_seconds"] == 7200
+    assert result["total_original_estimate_seconds"] == 3600
+    assert result["total_delta_seconds"] == 3600
+    assert len(result["issues"][0]["worklogs"]) == 1
+    assert result["issues"][0]["worklogs"][0]["comment"] == "in range"
+
+
+def test_worklog_report_omits_issues_with_no_matching_worklogs():
+    mock_client = MagicMock()
+    mock_client.get_current_user.return_value = User(account_id="alice", display_name="Alice")
+    mock_client.search.return_value = [_issue()]
+    mock_client.get_worklogs.return_value = [
+        Worklog("1", "Bob", "1h", 3600, "not mine", "2026-07-20T09:00:00.000+0000"),
+    ]
+    with patch("tools.worklog_report.get_client", return_value=mock_client):
+        result = worklog_report.worklog_report(since="2026-07-01")
+
+    assert result["issue_count"] == 0
+    assert result["issues"] == []
+
+
+def test_worklog_report_rejects_until_before_since():
+    result = worklog_report.worklog_report(since="2026-07-15", until="2026-07-01")
+    assert result["error"]["type"] == "invalid_input"
+
+
+def test_worklog_report_rejects_unparseable_date():
+    result = worklog_report.worklog_report(since="not-a-date")
+    assert result["error"]["type"] == "invalid_input"
 
 
 def test_sprint_returns_board_and_active_sprint():

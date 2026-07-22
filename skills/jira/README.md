@@ -88,10 +88,12 @@ Jira Server/Data Center.
 | `my_work()` | Read | Unresolved issues assigned to the current user |
 | `issue_summary(issue_key)` | Read | Issue + comments + worklogs + changelog + links, as one document |
 | `blockers(issue_key)` | Read | `{"blocked": bool, "reasons": [...]}` from links/status/comments |
-| `search(jql)` | Read | Arbitrary JQL, structured issue results |
+| `search(jql, fields)` | Read | Arbitrary JQL, structured issue results (incl. description/components/subtasks/custom fields) |
 | `transition(issue_key, status, confirm)` | Write (gated) | Move an issue to a status; transition IDs resolved automatically |
 | `worklog(issue_key, duration, description, confirm)` | Write (gated) | Log time against an issue |
 | `sprint(board_id)` | Read | Active sprint, board, dates, and goal |
+| `worklog_report(since, until, max_issues)` | Read | Aggregate your logged time over a date range vs. each issue's estimate |
+| `list_fields()` | Read | Enumerate every field (incl. custom fields) to discover a custom field's id by name |
 
 Each tool is reachable both as a Python function (`tools/<name>.py`) and
 as a CLI subcommand (`scripts/jira_tool.py <name>`). See `skill.yaml` for

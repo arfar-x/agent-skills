@@ -128,6 +128,13 @@ class Issue:
     labels: List[str] = field(default_factory=list)
     links: List[IssueLink] = field(default_factory=list)
     raw: Dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
+    original_estimate_seconds: Optional[int] = None
+    time_spent_seconds: Optional[int] = None
+    remaining_estimate_seconds: Optional[int] = None
+    description: Optional[str] = None
+    components: List[str] = field(default_factory=list)
+    subtasks: List[Dict[str, Any]] = field(default_factory=list)
+    custom_fields: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -143,6 +150,13 @@ class Issue:
             "due_date": self.due_date,
             "labels": self.labels,
             "links": [link.to_dict() for link in self.links],
+            "original_estimate_seconds": self.original_estimate_seconds,
+            "time_spent_seconds": self.time_spent_seconds,
+            "remaining_estimate_seconds": self.remaining_estimate_seconds,
+            "description": self.description,
+            "components": self.components,
+            "subtasks": self.subtasks,
+            "custom_fields": self.custom_fields,
         }
 
 

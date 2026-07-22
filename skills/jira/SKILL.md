@@ -93,11 +93,17 @@ python3 scripts/jira_tool.py issue_summary --issue_key PAY-123
 # Blocking status + reasons for one issue
 python3 scripts/jira_tool.py blockers --issue_key PAY-123
 
-# Arbitrary JQL search
-python3 scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d"
+# Arbitrary JQL search (each issue includes description, components, subtasks)
+python3 scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" [--fields customfield_10056]
+
+# Enumerate every field (incl. custom fields) to discover a custom field's id by name
+python3 scripts/jira_tool.py list_fields
 
 # Active sprint / board / dates / goal
 python3 scripts/jira_tool.py sprint
+
+# Your logged time over a date range, vs. each issue's original estimate
+python3 scripts/jira_tool.py worklog_report --since -14d [--until 2026-07-20] [--max_issues 50]
 
 # Log time (write, gated -- see rule 5)
 python3 scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
@@ -133,9 +139,55 @@ Confirm with the user, then run `transition --issue_key PAY-412 --status Review 
 **"Which of my tickets haven't been updated recently?"**
 Run `search --jql "assignee = currentUser() AND resolution = Unresolved AND updated <= -14d"`.
 
+**"How many hours have I logged in the last two weeks?"**
+Run `worklog_report --since -14d` and report `total_logged_seconds` (converted
+to hours) -- don't estimate from memory.
+
+**"How much more than the estimate did I work?"**
+Run `worklog_report` for the relevant window and report `total_delta_seconds`
+(`total_logged_seconds - total_original_estimate_seconds`), plus the
+worst-offending issues from the `issues` list (their own `delta_seconds`).
+Note that `original_estimate_seconds` is `null` for any issue with no
+estimate set -- exclude those from an "over/under estimate" claim rather
+than treating a missing estimate as zero.
+
+**"What did I get stuck on recently?"**
+Run `worklog_report` and reason over each issue's `logged_seconds` (vs. its
+`original_estimate_seconds`) and its worklogs' `comment` text -- don't just
+list the top issue by hours, actually read what the comments say happened.
+
+**"Which tasks have a Figma link?" (design ready)**
+Run `list_fields` once, find the field whose `name` matches "Figma" (try
+"Figma", "Figma Link", "Design Link" -- the exact label varies per
+instance), then `search --jql "..." --fields <that id>` and check
+`custom_fields.<that id>` on each issue for a non-empty value. Never
+guess a `customfield_NNNNN` id without confirming it via `list_fields`.
+
+**"Which tasks are ready for dev?"**
+This is almost always a status name, not a special tool -- run
+`search --jql "status = 'Ready for Dev'"` (confirm the exact status name
+against the project's workflow first if unsure, e.g. via one `my_work`
+or `search` call to see what statuses actually appear).
+
+**"Which task has no log that I should log?"**
+Run `search --jql "assignee = currentUser() AND resolution = Unresolved AND timespent is EMPTY"`.
+
+**"Based on the description, which tasks need backend or frontend?"**
+Run `search` (or `issue_summary` per issue) and read each issue's
+`description` and `components` yourself -- there's no separate
+classification tool, since "frontend"/"backend" isn't a fixed Jira
+field; it's inferred from this text.
+
+**"Which tasks don't have subtasks?" / "Which have a frontend subtask?" / "Which have a frontend subtask with backend ready?"**
+Run `search` and reason over each issue's `subtasks` list (empty means
+no subtasks) and each subtask's `summary`/`issue_type` for
+frontend/backend hints, combined with the parent issue's own
+`status`/`components` for "is the backend ready" -- again, reasoning
+over already-returned structured data, not a new tool per phrasing.
+
 ## Reference
 
 See `README.md` in this skill directory for architecture details, the
 full environment-variable table, and how to run the test suite
-(`pytest`, 56 tests covering the client, config validation, and every
+(`pytest`, 72 tests covering the client, config validation, and every
 tool's success/error/confirmation paths).

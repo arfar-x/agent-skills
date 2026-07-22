@@ -50,7 +50,38 @@ DEFAULT_ISSUE_FIELDS = [
     "duedate",
     "labels",
     "issuelinks",
+    "description",
+    "components",
+    "subtasks",
 ]
+
+#: Raw Jira field keys already surfaced as named Issue attributes. Any other
+#: key present in a response's ``fields`` (e.g. a custom field like "Figma
+#: Link", customfield_10056) is passed through into Issue.custom_fields
+#: instead of being silently dropped -- this lets the LLM discover and
+#: request instance-specific fields (via list_fields()) without the client
+#: needing to know their names or IDs ahead of time.
+_NAMED_ISSUE_FIELDS = frozenset(
+    {
+        "summary",
+        "status",
+        "priority",
+        "issuetype",
+        "assignee",
+        "reporter",
+        "updated",
+        "created",
+        "duedate",
+        "labels",
+        "issuelinks",
+        "description",
+        "components",
+        "subtasks",
+        "timeoriginalestimate",
+        "timespent",
+        "timeestimate",
+    }
+)
 
 
 class JiraApiError(RuntimeError):
@@ -358,9 +389,27 @@ class JiraClient:
             )
         return links
 
+    @staticmethod
+    def _build_subtasks(raw_subtasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [
+            {
+                "key": raw.get("key", ""),
+                "summary": safe_get(raw, "fields", "summary"),
+                "status": safe_get(raw, "fields", "status", "name"),
+                "issue_type": safe_get(raw, "fields", "issuetype", "name"),
+            }
+            for raw in raw_subtasks or []
+        ]
+
     @classmethod
     def _build_issue(cls, raw: Dict[str, Any]) -> Issue:
         fields = raw.get("fields", {}) or {}
+        description = fields.get("description")
+        custom_fields = {
+            key: value
+            for key, value in fields.items()
+            if key not in _NAMED_ISSUE_FIELDS and value is not None
+        }
         return Issue(
             key=raw.get("key", ""),
             summary=fields.get("summary", "") or "",
@@ -375,6 +424,13 @@ class JiraClient:
             labels=list(fields.get("labels") or []),
             links=cls._build_issue_links(fields.get("issuelinks", [])),
             raw=raw,
+            original_estimate_seconds=fields.get("timeoriginalestimate"),
+            time_spent_seconds=fields.get("timespent"),
+            remaining_estimate_seconds=fields.get("timeestimate"),
+            description=adf_to_plain_text(description) if description else None,
+            components=[c.get("name") for c in fields.get("components") or [] if c.get("name")],
+            subtasks=cls._build_subtasks(fields.get("subtasks")),
+            custom_fields=custom_fields,
         )
 
     @staticmethod
@@ -693,6 +749,21 @@ class JiraClient:
         """Return the authenticated user (used to resolve ``currentUser()``)."""
         raw = self._request("GET", f"{self.API_V2}/myself", params={}, cache=True)
         return self._build_user(raw)
+
+    def list_fields(self) -> List[Dict[str, Any]]:
+        """Return every field this Jira instance knows about.
+
+        Used to discover a custom field's ID by its display name (e.g. a
+        "Figma Link" URL field is typically ``customfield_XXXXX`` and
+        varies per instance) so it can be requested explicitly via
+        ``search(..., fields=[...])`` -- the client never hardcodes
+        instance-specific custom field IDs itself.
+        """
+        payload = self._request("GET", f"{self.API_V2}/field", params={}, cache=True)
+        return [
+            {"id": f.get("id"), "name": f.get("name"), "custom": bool(f.get("custom"))}
+            for f in payload or []
+        ]
 
     # ------------------------------------------------------------------
     # Internal helpers

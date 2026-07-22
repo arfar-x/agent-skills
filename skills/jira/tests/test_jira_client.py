@@ -63,6 +63,38 @@ def test_get_issue_builds_typed_model(client, mock_session):
     assert issue.labels == ["backend"]
 
 
+def test_get_issue_builds_description_subtasks_components_and_custom_fields(client, mock_session):
+    mock_session.request.return_value = make_response(
+        json_data={
+            "key": "PAY-1",
+            "fields": {
+                "summary": "Fix bug",
+                "status": {"name": "In Progress"},
+                "description": "Needs a frontend fix.",
+                "components": [{"name": "Frontend"}, {"name": "API"}],
+                "subtasks": [
+                    {
+                        "key": "PAY-2",
+                        "fields": {
+                            "summary": "Sub-task",
+                            "status": {"name": "To Do"},
+                            "issuetype": {"name": "Sub-task"},
+                        },
+                    }
+                ],
+                "customfield_10056": "https://figma.com/file/abc",
+            },
+        }
+    )
+    issue = client.get_issue("PAY-1")
+    assert issue.description == "Needs a frontend fix."
+    assert issue.components == ["Frontend", "API"]
+    assert issue.subtasks == [
+        {"key": "PAY-2", "summary": "Sub-task", "status": "To Do", "issue_type": "Sub-task"}
+    ]
+    assert issue.custom_fields == {"customfield_10056": "https://figma.com/file/abc"}
+
+
 def test_get_issue_rejects_bad_key(client):
     with pytest.raises(JiraValidationError):
         client.get_issue("")
@@ -169,3 +201,17 @@ def test_search_users_handles_list_payload(client, mock_session):
 def test_search_users_rejects_empty_query(client):
     with pytest.raises(JiraValidationError):
         client.search_users("")
+
+
+def test_list_fields_returns_id_name_custom(client, mock_session):
+    mock_session.request.return_value = make_response(
+        json_data=[
+            {"id": "summary", "name": "Summary", "custom": False},
+            {"id": "customfield_10056", "name": "Figma Link", "custom": True},
+        ]
+    )
+    fields = client.list_fields()
+    assert fields == [
+        {"id": "summary", "name": "Summary", "custom": False},
+        {"id": "customfield_10056", "name": "Figma Link", "custom": True},
+    ]
