@@ -1,0 +1,738 @@
+"""The single reusable Jira REST client.
+
+Every tool in this skill talks to Jira exclusively through
+:class:`JiraClient`. No other module may issue HTTP requests to Jira.
+This centralizes authentication, retries, pagination, rate-limit handling,
+error normalization, and (optional) response caching, so that behavior is
+consistent everywhere and never duplicated.
+
+Supports both Jira Cloud and self-hosted Jira Server / Data Center via an
+explicit ``base_url``, using either HTTP Basic auth (username + password)
+or a Personal Access Token / bearer token.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from .auth import AuthMode, JiraConfig, load_config
+from .models import (
+    Board,
+    ChangelogEntry,
+    Comment,
+    Issue,
+    IssueLink,
+    Sprint,
+    Transition,
+    User,
+    Worklog,
+)
+from .utils import adf_to_plain_text, safe_get
+
+logger = logging.getLogger("jira_skill.client")
+
+DEFAULT_ISSUE_FIELDS = [
+    "summary",
+    "status",
+    "priority",
+    "issuetype",
+    "assignee",
+    "reporter",
+    "updated",
+    "created",
+    "duedate",
+    "labels",
+    "issuelinks",
+]
+
+
+class JiraApiError(RuntimeError):
+    """Base class for all Jira client errors."""
+
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class JiraAuthError(JiraApiError):
+    """Raised on 401/403 responses -- invalid or insufficient credentials."""
+
+
+class JiraNotFoundError(JiraApiError):
+    """Raised on 404 responses -- issue, board, or resource does not exist."""
+
+
+class JiraRateLimitError(JiraApiError):
+    """Raised when Jira rate limiting could not be resolved via retries."""
+
+
+class JiraValidationError(JiraApiError):
+    """Raised on 400 responses -- typically invalid JQL or field values."""
+
+
+class _TTLCache:
+    """A minimal thread-safe in-memory TTL cache for idempotent GET requests."""
+
+    def __init__(self, ttl_seconds: float):
+        self._ttl = ttl_seconds
+        self._store: Dict[str, Tuple[float, Any]] = {}
+        self._lock = threading.Lock()
+
+    @property
+    def enabled(self) -> bool:
+        return self._ttl > 0
+
+    def get(self, key: str) -> Optional[Any]:
+        if not self.enabled:
+            return None
+        with self._lock:
+            entry = self._store.get(key)
+            if entry is None:
+                return None
+            expires_at, value = entry
+            if time.monotonic() >= expires_at:
+                del self._store[key]
+                return None
+            return value
+
+    def set(self, key: str, value: Any) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            self._store[key] = (time.monotonic() + self._ttl, value)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._store.clear()
+
+
+class JiraClient:
+    """High-level, typed client wrapping the Jira REST API.
+
+    All public methods return the typed models defined in
+    :mod:`lib.models` (or primitive JSON-safe structures) -- never raw
+    Jira REST payloads. This is what lets every tool stay "thin": tools
+    only validate input, call this client, and hand back the result.
+    """
+
+    API_V2 = "/rest/api/2"
+    AGILE_V1 = "/rest/agile/1.0"
+
+    def __init__(
+        self,
+        config: Optional[JiraConfig] = None,
+        session: Optional[requests.Session] = None,
+        cache_ttl_seconds: Optional[float] = None,
+    ):
+        self.config = config or load_config()
+        self.session = session or self._build_session()
+        if cache_ttl_seconds is None:
+            cache_ttl_seconds = float(os.environ.get("JIRA_CACHE_TTL_SECONDS", "0") or 0)
+        self._cache = _TTLCache(cache_ttl_seconds)
+        logger.debug("JiraClient initialized against %s", self.config.base_url)
+
+    # ------------------------------------------------------------------
+    # Session / transport setup
+    # ------------------------------------------------------------------
+
+    def _build_session(self) -> requests.Session:
+        session = requests.Session()
+        retry = Retry(
+            total=self.config.max_retries,
+            backoff_factor=0.5,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=frozenset({"GET", "POST", "PUT", "DELETE"}),
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        session.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
+
+        if self.config.auth_mode is AuthMode.PAT:
+            session.headers["Authorization"] = f"Bearer {self.config.api_token}"
+        else:
+            session.auth = (self.config.username or "", self.config.password or "")
+
+        session.verify = self.config.verify_ssl
+        return session
+
+    # ------------------------------------------------------------------
+    # Low-level request plumbing
+    # ------------------------------------------------------------------
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+        cache: bool = False,
+    ) -> Any:
+        url = f"{self.config.base_url}{path}"
+        cache_key = f"{method}:{url}:{sorted((params or {}).items())}"
+
+        if cache and method == "GET":
+            cached = self._cache.get(cache_key)
+            if cached is not None:
+                logger.debug("Cache hit for %s", url)
+                return cached
+
+        logger.info("Jira request: %s %s", method, path)
+        try:
+            response = self.session.request(
+                method,
+                url,
+                params=params,
+                json=json_body,
+                timeout=self.config.timeout_seconds,
+            )
+        except requests.exceptions.Timeout as exc:
+            raise JiraApiError(
+                f"Timed out contacting Jira at {url} after {self.config.timeout_seconds}s"
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise JiraApiError(f"Could not connect to Jira at {self.config.base_url}: {exc}") from exc
+
+        self._raise_for_status(response)
+
+        if response.status_code == 204 or not response.content:
+            result: Any = {}
+        else:
+            try:
+                result = response.json()
+            except ValueError as exc:
+                raise JiraApiError(
+                    f"Jira returned a non-JSON response ({response.status_code}) for {url}"
+                ) from exc
+
+        if cache and method == "GET":
+            self._cache.set(cache_key, result)
+
+        return result
+
+    def _raise_for_status(self, response: requests.Response) -> None:
+        if response.ok:
+            return
+
+        status = response.status_code
+        message = self._extract_error_message(response)
+
+        if status == 401:
+            raise JiraAuthError(
+                f"Jira authentication failed (401). Check JIRA_USERNAME/JIRA_PASSWORD "
+                f"or JIRA_API_TOKEN. Details: {message}",
+                status_code=status,
+            )
+        if status == 403:
+            raise JiraAuthError(
+                f"Jira denied access (403) -- the configured account lacks permission. "
+                f"Details: {message}",
+                status_code=status,
+            )
+        if status == 404:
+            raise JiraNotFoundError(f"Jira resource not found (404): {message}", status_code=status)
+        if status == 400:
+            raise JiraValidationError(f"Jira rejected the request (400): {message}", status_code=status)
+        if status == 429:
+            retry_after = response.headers.get("Retry-After", "unknown")
+            raise JiraRateLimitError(
+                f"Jira rate limit exceeded (429) even after retries. "
+                f"Retry-After={retry_after}. Details: {message}",
+                status_code=status,
+            )
+        if status >= 500:
+            raise JiraApiError(
+                f"Jira server error ({status}) after exhausting retries: {message}",
+                status_code=status,
+            )
+        raise JiraApiError(f"Unexpected Jira response ({status}): {message}", status_code=status)
+
+    @staticmethod
+    def _extract_error_message(response: requests.Response) -> str:
+        try:
+            payload = response.json()
+        except ValueError:
+            return response.text[:500] if response.text else response.reason
+
+        messages = payload.get("errorMessages") or []
+        errors = payload.get("errors") or {}
+        parts = list(messages) + [f"{k}: {v}" for k, v in errors.items()]
+        return "; ".join(parts) if parts else str(payload)[:500]
+
+    def _paginate(
+        self,
+        path: str,
+        *,
+        params: Dict[str, Any],
+        items_key: Optional[str] = None,
+        max_results_total: Optional[int] = None,
+        page_size: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Transparently walk paginated Jira endpoints and return all items.
+
+        Handles both the "startAt/maxResults/total" style (search, worklogs,
+        comments) and the "isLast" style (agile boards/sprints).
+        """
+        collected: List[Dict[str, Any]] = []
+        start_at = int(params.get("startAt", 0))
+        params = dict(params)
+
+        while True:
+            remaining = None
+            if max_results_total is not None:
+                remaining = max_results_total - len(collected)
+                if remaining <= 0:
+                    break
+            batch_size = page_size if remaining is None else min(page_size, remaining)
+            params["startAt"] = start_at
+            params["maxResults"] = batch_size
+
+            payload = self._request("GET", path, params=params)
+            items = payload.get(items_key, payload) if items_key else payload.get("values", [])
+            collected.extend(items)
+
+            total = payload.get("total")
+            is_last = payload.get("isLast")
+            fetched_count = len(items)
+
+            start_at += fetched_count
+
+            if is_last is True:
+                break
+            if fetched_count == 0:
+                break
+            if total is not None and start_at >= total:
+                break
+            if total is None and is_last is None and fetched_count < batch_size:
+                # Neither pagination convention supplied a stop signal;
+                # a short page is the only remaining indicator of the end.
+                break
+
+        if max_results_total is not None:
+            collected = collected[:max_results_total]
+        return collected
+
+    # ------------------------------------------------------------------
+    # Model builders (translate raw Jira JSON -> typed models)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_issue_links(raw_links: List[Dict[str, Any]]) -> List[IssueLink]:
+        links: List[IssueLink] = []
+        for raw_link in raw_links or []:
+            link_type = safe_get(raw_link, "type", "name", default="Related")
+            if "outwardIssue" in raw_link:
+                direction = "outward"
+                related = raw_link["outwardIssue"]
+                type_label = safe_get(raw_link, "type", "outward", default=link_type)
+            elif "inwardIssue" in raw_link:
+                direction = "inward"
+                related = raw_link["inwardIssue"]
+                type_label = safe_get(raw_link, "type", "inward", default=link_type)
+            else:
+                continue
+            links.append(
+                IssueLink(
+                    link_type=type_label,
+                    direction=direction,
+                    related_key=related.get("key", ""),
+                    related_summary=safe_get(related, "fields", "summary"),
+                    related_status=safe_get(related, "fields", "status", "name"),
+                )
+            )
+        return links
+
+    @classmethod
+    def _build_issue(cls, raw: Dict[str, Any]) -> Issue:
+        fields = raw.get("fields", {}) or {}
+        return Issue(
+            key=raw.get("key", ""),
+            summary=fields.get("summary", "") or "",
+            status=safe_get(fields, "status", "name", default="Unknown"),
+            priority=safe_get(fields, "priority", "name"),
+            issue_type=safe_get(fields, "issuetype", "name"),
+            assignee=safe_get(fields, "assignee", "displayName"),
+            reporter=safe_get(fields, "reporter", "displayName"),
+            updated=fields.get("updated"),
+            created=fields.get("created"),
+            due_date=fields.get("duedate"),
+            labels=list(fields.get("labels") or []),
+            links=cls._build_issue_links(fields.get("issuelinks", [])),
+            raw=raw,
+        )
+
+    @staticmethod
+    def _build_comment(raw: Dict[str, Any]) -> Comment:
+        body = raw.get("body")
+        text_body = adf_to_plain_text(body) if isinstance(body, dict) else str(body or "")
+        return Comment(
+            id=raw.get("id", ""),
+            author=safe_get(raw, "author", "displayName"),
+            body=text_body,
+            created=raw.get("created"),
+            updated=raw.get("updated"),
+        )
+
+    @staticmethod
+    def _build_worklog(raw: Dict[str, Any]) -> Worklog:
+        comment = raw.get("comment")
+        text_comment = adf_to_plain_text(comment) if isinstance(comment, dict) else comment
+        return Worklog(
+            id=raw.get("id", ""),
+            author=safe_get(raw, "author", "displayName"),
+            time_spent=raw.get("timeSpent", ""),
+            time_spent_seconds=int(raw.get("timeSpentSeconds", 0) or 0),
+            comment=text_comment,
+            started=raw.get("started"),
+        )
+
+    @staticmethod
+    def _build_user(raw: Dict[str, Any]) -> User:
+        return User(
+            account_id=raw.get("accountId") or raw.get("key") or raw.get("name"),
+            display_name=raw.get("displayName"),
+            email=raw.get("emailAddress"),
+            active=raw.get("active"),
+        )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def search(
+        self,
+        jql: str,
+        *,
+        fields: Optional[List[str]] = None,
+        max_results: Optional[int] = 200,
+        expand: Optional[List[str]] = None,
+    ) -> List[Issue]:
+        """Run a JQL query and return all matching issues (auto-paginated).
+
+        Args:
+            jql: A valid JQL query string.
+            fields: Jira fields to request. Defaults to a curated set
+                sufficient for summaries; pass ``["*all"]`` for everything.
+            max_results: Safety cap on total issues fetched (``None`` for
+                unlimited, subject to Jira's own hard limits).
+            expand: Optional expand parameters (e.g. ``["changelog"]``).
+        """
+        if not jql or not jql.strip():
+            raise JiraValidationError("JQL query must not be empty.")
+
+        params: Dict[str, Any] = {
+            "jql": jql,
+            "fields": ",".join(fields or DEFAULT_ISSUE_FIELDS),
+        }
+        if expand:
+            params["expand"] = ",".join(expand)
+
+        raw_issues = self._paginate(
+            f"{self.API_V2}/search",
+            params=params,
+            items_key="issues",
+            max_results_total=max_results,
+            page_size=50,
+        )
+        return [self._build_issue(raw) for raw in raw_issues]
+
+    def get_issue(
+        self,
+        issue_key: str,
+        *,
+        fields: Optional[List[str]] = None,
+        expand: Optional[List[str]] = None,
+    ) -> Issue:
+        """Fetch a single issue by key (e.g. ``PAY-123``)."""
+        self._require_issue_key(issue_key)
+        params: Dict[str, Any] = {}
+        if fields:
+            params["fields"] = ",".join(fields)
+        if expand:
+            params["expand"] = ",".join(expand)
+        raw = self._request("GET", f"{self.API_V2}/issue/{issue_key}", params=params, cache=True)
+        return self._build_issue(raw)
+
+    def get_comments(self, issue_key: str, *, max_results: Optional[int] = None) -> List[Comment]:
+        """Fetch all comments on an issue, oldest first."""
+        self._require_issue_key(issue_key)
+        raw_comments = self._paginate(
+            f"{self.API_V2}/issue/{issue_key}/comment",
+            params={},
+            items_key="comments",
+            max_results_total=max_results,
+        )
+        return [self._build_comment(raw) for raw in raw_comments]
+
+    def get_worklogs(self, issue_key: str, *, max_results: Optional[int] = None) -> List[Worklog]:
+        """Fetch all worklogs recorded against an issue."""
+        self._require_issue_key(issue_key)
+        raw_worklogs = self._paginate(
+            f"{self.API_V2}/issue/{issue_key}/worklog",
+            params={},
+            items_key="worklogs",
+            max_results_total=max_results,
+        )
+        return [self._build_worklog(raw) for raw in raw_worklogs]
+
+    def get_changelog(self, issue_key: str, *, max_results: Optional[int] = None) -> List[ChangelogEntry]:
+        """Fetch the field-change history of an issue."""
+        self._require_issue_key(issue_key)
+        raw_histories = self._paginate(
+            f"{self.API_V2}/issue/{issue_key}/changelog",
+            params={},
+            items_key="values",
+            max_results_total=max_results,
+        )
+        entries: List[ChangelogEntry] = []
+        for history in raw_histories:
+            author = safe_get(history, "author", "displayName")
+            created = history.get("created")
+            for item in history.get("items", []):
+                entries.append(
+                    ChangelogEntry(
+                        id=history.get("id", ""),
+                        author=author,
+                        created=created,
+                        field=item.get("field", ""),
+                        from_value=item.get("fromString"),
+                        to_value=item.get("toString"),
+                    )
+                )
+        return entries
+
+    def add_worklog(
+        self,
+        issue_key: str,
+        duration_seconds: int,
+        description: str,
+        *,
+        started: Optional[str] = None,
+    ) -> Worklog:
+        """Submit a worklog entry against an issue.
+
+        Args:
+            issue_key: Target issue, e.g. ``PAY-123``.
+            duration_seconds: Time spent, in seconds (already parsed/validated).
+            description: Free-text worklog comment.
+            started: Optional ISO-8601 start timestamp; defaults to now on Jira's side.
+        """
+        self._require_issue_key(issue_key)
+        if duration_seconds <= 0:
+            raise JiraValidationError("Worklog duration_seconds must be positive.")
+
+        body: Dict[str, Any] = {"timeSpentSeconds": duration_seconds, "comment": description}
+        if started:
+            body["started"] = started
+
+        raw = self._request("POST", f"{self.API_V2}/issue/{issue_key}/worklog", json_body=body)
+        return self._build_worklog(raw)
+
+    def get_transitions(self, issue_key: str) -> List[Transition]:
+        """List transitions currently available for an issue."""
+        self._require_issue_key(issue_key)
+        payload = self._request("GET", f"{self.API_V2}/issue/{issue_key}/transitions", params={})
+        transitions = []
+        for raw in payload.get("transitions", []):
+            transitions.append(
+                Transition(
+                    id=raw.get("id", ""),
+                    name=raw.get("name", ""),
+                    to_status=safe_get(raw, "to", "name", default=""),
+                )
+            )
+        return transitions
+
+    def transition_issue(self, issue_key: str, transition: str) -> Dict[str, Any]:
+        """Move an issue to a new status.
+
+        Args:
+            issue_key: Target issue, e.g. ``PAY-123``.
+            transition: Either a transition id, a transition name (e.g.
+                "Start Progress"), or a target status name (e.g. "Review").
+                Resolved automatically against the issue's available
+                transitions -- callers never need to know Jira transition ids.
+
+        Raises:
+            JiraValidationError: If no transition matches ``transition``.
+        """
+        self._require_issue_key(issue_key)
+        available = self.get_transitions(issue_key)
+        if not available:
+            raise JiraValidationError(
+                f"{issue_key} has no available transitions for the current user/status."
+            )
+
+        resolved = self._resolve_transition(transition, available)
+        if resolved is None:
+            options = ", ".join(f"{t.name} (-> {t.to_status})" for t in available)
+            raise JiraValidationError(
+                f"'{transition}' does not match any available transition for {issue_key}. "
+                f"Available transitions: {options}"
+            )
+
+        self._request(
+            "POST",
+            f"{self.API_V2}/issue/{issue_key}/transitions",
+            json_body={"transition": {"id": resolved.id}},
+        )
+        return {
+            "issue_key": issue_key,
+            "transitioned_to": resolved.to_status,
+            "transition_name": resolved.name,
+            "success": True,
+        }
+
+    @staticmethod
+    def _resolve_transition(requested: str, available: List[Transition]) -> Optional[Transition]:
+        requested_norm = requested.strip().lower()
+        for t in available:
+            if t.id == requested.strip():
+                return t
+        for t in available:
+            if t.name.lower() == requested_norm:
+                return t
+        for t in available:
+            if t.to_status.lower() == requested_norm:
+                return t
+        # Fuzzy fallback: substring match against target status name.
+        for t in available:
+            if requested_norm in t.to_status.lower() or requested_norm in t.name.lower():
+                return t
+        return None
+
+    def current_sprint(self, board_id: Optional[int] = None) -> Optional[Sprint]:
+        """Return the active sprint for a board (auto-detected if not given)."""
+        resolved_board_id = board_id if board_id is not None else self._require_default_board_id()
+        payload = self._request(
+            "GET",
+            f"{self.AGILE_V1}/board/{resolved_board_id}/sprint",
+            params={"state": "active"},
+        )
+        values = payload.get("values", [])
+        if not values:
+            return None
+        raw = values[0]
+        return Sprint(
+            id=raw.get("id"),
+            name=raw.get("name", ""),
+            state=raw.get("state", ""),
+            start_date=raw.get("startDate"),
+            end_date=raw.get("endDate"),
+            goal=raw.get("goal"),
+            board_id=raw.get("originBoardId", resolved_board_id),
+        )
+
+    def current_board(self) -> Optional[Board]:
+        """Return the first board visible to the authenticated user.
+
+        In multi-board Jira instances, prefer calling agile endpoints with
+        an explicit ``board_id`` obtained via a project-scoped lookup.
+        """
+        payload = self._request("GET", f"{self.AGILE_V1}/board", params={"maxResults": 1})
+        values = payload.get("values", [])
+        if not values:
+            return None
+        raw = values[0]
+        return Board(id=raw.get("id"), name=raw.get("name", ""), type=raw.get("type", ""))
+
+    def kanban_status(self, board_id: Optional[int] = None) -> Dict[str, Any]:
+        """Return the kanban board's column configuration and per-column issue counts."""
+        resolved_board_id = board_id if board_id is not None else self._require_default_board_id()
+        config = self._request("GET", f"{self.AGILE_V1}/board/{resolved_board_id}/configuration", params={})
+        columns = config.get("columnConfig", {}).get("columns", [])
+
+        column_names = [c.get("name") for c in columns]
+        issues_payload = self._request(
+            "GET",
+            f"{self.AGILE_V1}/board/{resolved_board_id}/issue",
+            params={"fields": "status", "maxResults": 500},
+        )
+        counts: Dict[str, int] = {name: 0 for name in column_names}
+        for raw_issue in issues_payload.get("issues", []):
+            status_name = safe_get(raw_issue, "fields", "status", "name")
+            if status_name in counts:
+                counts[status_name] += 1
+
+        return {
+            "board_id": resolved_board_id,
+            "columns": column_names,
+            "issue_counts_by_column": counts,
+        }
+
+    def search_users(self, query: str, *, max_results: int = 25) -> List[User]:
+        """Search for users by name/email fragment (for assignee lookups)."""
+        if not query or not query.strip():
+            raise JiraValidationError("search_users query must not be empty.")
+        payload = self._request(
+            "GET",
+            f"{self.API_V2}/user/search",
+            params={"query": query, "maxResults": max_results},
+        )
+        raw_users = payload if isinstance(payload, list) else payload.get("values", [])
+        return [self._build_user(raw) for raw in raw_users]
+
+    def get_current_user(self) -> User:
+        """Return the authenticated user (used to resolve ``currentUser()``)."""
+        raw = self._request("GET", f"{self.API_V2}/myself", params={}, cache=True)
+        return self._build_user(raw)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    _default_board_id: Optional[int] = None
+
+    def _require_default_board_id(self) -> int:
+        if self._default_board_id is not None:
+            return self._default_board_id
+        board = self.current_board()
+        if board is None:
+            raise JiraNotFoundError("No boards are visible to the authenticated user.")
+        self._default_board_id = board.id
+        return board.id
+
+    @staticmethod
+    def _require_issue_key(issue_key: str) -> None:
+        if not issue_key or not issue_key.strip():
+            raise JiraValidationError("issue_key must not be empty.")
+        if "-" not in issue_key:
+            raise JiraValidationError(
+                f"issue_key {issue_key!r} does not look like a valid Jira key (e.g. PAY-123)."
+            )
+
+
+_client_lock = threading.Lock()
+_client_singleton: Optional[JiraClient] = None
+
+
+def get_client() -> JiraClient:
+    """Return a process-wide singleton :class:`JiraClient`.
+
+    Tools should use this instead of constructing their own client, so
+    that configuration is validated once and the underlying HTTP session
+    (with its connection pool and retry policy) is reused across calls.
+    """
+    global _client_singleton
+    with _client_lock:
+        if _client_singleton is None:
+            _client_singleton = JiraClient()
+        return _client_singleton
+
+
+def reset_client() -> None:
+    """Drop the cached singleton client (primarily for tests)."""
+    global _client_singleton
+    with _client_lock:
+        _client_singleton = None

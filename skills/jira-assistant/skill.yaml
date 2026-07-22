@@ -1,0 +1,200 @@
+name: jira
+display_name: Jira Assistant
+version: 1.0.0
+description: >
+  A high-level assistant for Jira. Answers questions like "what should I
+  work on next", "what's blocking PAY-123", or "summarize my tickets" by
+  calling thin, structured tools and reasoning over the results -- never
+  by exposing raw Jira REST APIs to the model.
+
+runtime:
+  language: python
+  min_python_version: "3.9"
+  entrypoint_style: function
+  module_root: .
+
+prompts:
+  system: prompts/system.md
+  examples: prompts/examples.md
+
+configuration:
+  env:
+    - name: JIRA_BASE_URL
+      required: true
+      description: Root URL of the Jira instance, e.g. https://jira.mycompany.com
+    - name: JIRA_AUTH_MODE
+      required: false
+      default: basic
+      allowed_values: [basic, pat]
+      description: Authentication strategy. "basic" (default) uses username/password; "pat" uses a personal access token.
+    - name: JIRA_USERNAME
+      required: false
+      description: Required when JIRA_AUTH_MODE=basic.
+    - name: JIRA_PASSWORD
+      required: false
+      secret: true
+      description: Required when JIRA_AUTH_MODE=basic.
+    - name: JIRA_API_TOKEN
+      required: false
+      secret: true
+      description: Required when JIRA_AUTH_MODE=pat.
+    - name: JIRA_TIMEOUT_SECONDS
+      required: false
+      default: "30"
+    - name: JIRA_MAX_RETRIES
+      required: false
+      default: "3"
+    - name: JIRA_VERIFY_SSL
+      required: false
+      default: "true"
+    - name: JIRA_AUTO_CONFIRM_WRITES
+      required: false
+      default: "false"
+      description: When true, write tools (worklog, transition) execute immediately without a separate confirmation step.
+    - name: JIRA_CACHE_TTL_SECONDS
+      required: false
+      default: "0"
+      description: Optional TTL (seconds) for caching idempotent GET responses. 0 disables caching.
+
+startup_validation:
+  - Loads and validates configuration via lib.auth.load_config() before any tool may run.
+  - Fails fast with a descriptive ConfigurationError if required credentials are missing or inconsistent.
+
+tools:
+  - name: my_work
+    module: tools.my_work
+    entrypoint: my_work
+    description: >
+      Return every unresolved issue assigned to the current user, as
+      structured JSON. Use this before recommending what to work on next
+      or summarizing the user's workload.
+    read_only: true
+    parameters:
+      type: object
+      properties:
+        order_by:
+          type: string
+          description: JQL ORDER BY clause.
+          default: "priority DESC, updated DESC"
+        max_results:
+          type: integer
+          description: Maximum number of issues to return.
+          default: 100
+      required: []
+
+  - name: issue_summary
+    module: tools.issue_summary
+    entrypoint: issue_summary
+    description: >
+      Retrieve a single issue's full context (fields, comments, worklogs,
+      changelog, linked issues) as one JSON document. Use this before
+      summarizing or explaining a specific ticket.
+    read_only: true
+    parameters:
+      type: object
+      properties:
+        issue_key:
+          type: string
+          description: Issue key, e.g. PAY-412.
+      required: [issue_key]
+
+  - name: blockers
+    module: tools.blockers
+    entrypoint: blockers
+    description: >
+      Determine whether an issue is blocked and why, based on its status,
+      issue links, and comments. Returns structured reasons only -- use
+      this before answering "what's blocking X" questions.
+    read_only: true
+    parameters:
+      type: object
+      properties:
+        issue_key:
+          type: string
+          description: Issue key, e.g. PAY-412.
+      required: [issue_key]
+
+  - name: search
+    module: tools.search
+    entrypoint: search
+    description: >
+      Run an arbitrary JQL query and return matching issues as structured
+      JSON. Use this for open-ended or multi-issue questions that my_work()
+      does not cover (e.g. "tickets not updated in 2 weeks").
+    read_only: true
+    parameters:
+      type: object
+      properties:
+        jql:
+          type: string
+          description: A valid JQL query string.
+        max_results:
+          type: integer
+          default: 100
+      required: [jql]
+
+  - name: transition
+    module: tools.transition
+    entrypoint: transition
+    description: >
+      Move an issue to a requested status. This is a WRITE operation --
+      confirm with the user before calling with confirm=true, unless
+      automatic execution has been explicitly configured.
+    read_only: false
+    requires_confirmation: true
+    parameters:
+      type: object
+      properties:
+        issue_key:
+          type: string
+          description: Issue key, e.g. PAY-412.
+        status:
+          type: string
+          description: Target status or transition name, e.g. "Review".
+        confirm:
+          type: boolean
+          description: Set true only after the user has explicitly confirmed this action.
+          default: false
+      required: [issue_key, status]
+
+  - name: worklog
+    module: tools.worklog
+    entrypoint: worklog
+    description: >
+      Log time against an issue. This is a WRITE operation -- confirm
+      with the user before calling with confirm=true, unless automatic
+      execution has been explicitly configured.
+    read_only: false
+    requires_confirmation: true
+    parameters:
+      type: object
+      properties:
+        issue_key:
+          type: string
+          description: Issue key, e.g. PAY-412.
+        duration:
+          type: string
+          description: Jira-style duration, e.g. "2h", "1d 30m".
+        description:
+          type: string
+          description: Free-text description of the work performed.
+        confirm:
+          type: boolean
+          description: Set true only after the user has explicitly confirmed this action.
+          default: false
+      required: [issue_key, duration, description]
+
+  - name: sprint
+    module: tools.sprint
+    entrypoint: sprint
+    description: >
+      Return the active sprint for a board, including its board, dates,
+      and goal.
+    read_only: true
+    parameters:
+      type: object
+      properties:
+        board_id:
+          type: integer
+          description: Optional explicit board id.
+      required: []
