@@ -119,6 +119,35 @@ def parse_jql_date(value: str, *, now: Optional[_dt.datetime] = None) -> _dt.dat
     return parsed
 
 
+_BARE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def parse_worklog_date(value: str, *, now: Optional[_dt.datetime] = None) -> _dt.datetime:
+    """Parse a worklog "started" date -- a JQL-style relative date
+    (``"-3d"``) or an ISO date/datetime -- into a timezone-aware datetime.
+
+    A bare date (no time component, e.g. ``"2026-07-20"``) inherits the
+    current time-of-day rather than midnight, so "log 2h yesterday" lands
+    at roughly the time you're actually logging it.
+
+    Raises:
+        InvalidDateError: If ``value`` matches neither format.
+    """
+    now = now or _dt.datetime.now(_dt.timezone.utc)
+    parsed = parse_jql_date(value, now=now)
+    if _BARE_DATE_RE.match(value.strip()):
+        parsed = parsed.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=0)
+    return parsed
+
+
+def format_jira_timestamp(value: _dt.datetime) -> str:
+    """Format a datetime as a Jira REST timestamp, e.g.
+    ``"2026-07-20T09:00:00.000+0000"``."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=_dt.timezone.utc)
+    return value.strftime("%Y-%m-%dT%H:%M:%S.000%z")
+
+
 def parse_jira_timestamp(value: str) -> _dt.datetime:
     """Parse a Jira REST timestamp (e.g. ``"2024-06-10T09:00:00.000+0000"``)
     into a timezone-aware datetime.

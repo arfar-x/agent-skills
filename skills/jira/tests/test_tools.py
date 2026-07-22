@@ -11,6 +11,8 @@ from tools import (
     sprint,
     transition,
     worklog,
+    worklog_delete,
+    worklog_edit,
     worklog_report,
 )
 
@@ -146,7 +148,37 @@ def test_worklog_executes_when_confirmed():
     with patch("tools.worklog.get_client", return_value=mock_client):
         result = worklog.worklog("PAY-1", "2h", "did work", confirm=True)
     assert result["confirmed"] is True
-    mock_client.add_worklog.assert_called_once_with("PAY-1", 7200, "did work")
+    mock_client.add_worklog.assert_called_once_with("PAY-1", 7200, "did work", started=None)
+
+
+def test_worklog_with_date_passes_formatted_started_timestamp():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    mock_client.add_worklog.return_value = Worklog("1", "Alice", "2h", 7200, "did work", "2026-07-20")
+    with patch("tools.worklog.get_client", return_value=mock_client):
+        result = worklog.worklog("PAY-1", "2h", "did work", date="2026-07-20T09:00:00+00:00", confirm=True)
+    assert result["confirmed"] is True
+    mock_client.add_worklog.assert_called_once_with(
+        "PAY-1", 7200, "did work", started="2026-07-20T09:00:00.000+0000"
+    )
+
+
+def test_worklog_pending_action_includes_date_and_started():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    with patch("tools.worklog.get_client", return_value=mock_client):
+        result = worklog.worklog("PAY-1", "2h", "did work", date="2026-07-20")
+    assert result["requires_confirmation"] is True
+    assert result["pending_action"]["date"] == "2026-07-20"
+    assert result["pending_action"]["started"].startswith("2026-07-20T")
+
+
+def test_worklog_rejects_unparseable_date():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    with patch("tools.worklog.get_client", return_value=mock_client):
+        result = worklog.worklog("PAY-1", "2h", "did work", date="last tuesday")
+    assert result["error"]["type"] == "invalid_input"
 
 
 def test_worklog_auto_confirm_config_skips_gate():
@@ -164,6 +196,92 @@ def test_worklog_rejects_bad_duration():
     with patch("tools.worklog.get_client", return_value=mock_client):
         result = worklog.worklog("PAY-1", "not-a-duration", "did work")
     assert result["error"]["type"] == "invalid_input"
+
+
+def test_worklog_edit_requires_confirmation_by_default():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        result = worklog_edit.worklog_edit("PAY-1", "28459", duration="1h")
+    assert result["confirmed"] is False
+    assert result["requires_confirmation"] is True
+    mock_client.update_worklog.assert_not_called()
+
+
+def test_worklog_edit_executes_when_confirmed():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    mock_client.update_worklog.return_value = Worklog("28459", "Alice", "1h", 3600, "did work", "2026-07-20")
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        result = worklog_edit.worklog_edit("PAY-1", "28459", duration="1h", confirm=True)
+    assert result["confirmed"] is True
+    mock_client.update_worklog.assert_called_once_with(
+        "PAY-1", "28459", duration_seconds=3600, description=None, started=None
+    )
+
+
+def test_worklog_edit_rejects_when_no_fields_given():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        result = worklog_edit.worklog_edit("PAY-1", "28459")
+    assert result["error"]["type"] == "invalid_input"
+    mock_client.update_worklog.assert_not_called()
+
+
+def test_worklog_edit_rejects_bad_duration():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        result = worklog_edit.worklog_edit("PAY-1", "28459", duration="not-a-duration")
+    assert result["error"]["type"] == "invalid_input"
+
+
+def test_worklog_edit_rejects_unparseable_date():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        result = worklog_edit.worklog_edit("PAY-1", "28459", date="last tuesday")
+    assert result["error"]["type"] == "invalid_input"
+
+
+def test_worklog_edit_with_date_passes_formatted_started_timestamp():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    mock_client.update_worklog.return_value = Worklog("28459", "Alice", "1h", 3600, "did work", "2026-07-20")
+    with patch("tools.worklog_edit.get_client", return_value=mock_client):
+        worklog_edit.worklog_edit("PAY-1", "28459", date="2026-07-20T09:00:00+00:00")
+    mock_client.update_worklog.assert_called_once_with(
+        "PAY-1", "28459", duration_seconds=None, description=None, started="2026-07-20T09:00:00.000+0000"
+    )
+
+
+def test_worklog_delete_requires_confirmation_by_default():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    with patch("tools.worklog_delete.get_client", return_value=mock_client):
+        result = worklog_delete.worklog_delete("PAY-1", "28459")
+    assert result["confirmed"] is False
+    assert result["requires_confirmation"] is True
+    mock_client.delete_worklog.assert_not_called()
+
+
+def test_worklog_delete_executes_when_confirmed():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    with patch("tools.worklog_delete.get_client", return_value=mock_client):
+        result = worklog_delete.worklog_delete("PAY-1", "28459", confirm=True)
+    assert result["confirmed"] is True
+    assert result["deleted"] is True
+    mock_client.delete_worklog.assert_called_once_with("PAY-1", "28459")
+
+
+def test_worklog_delete_auto_confirm_config_skips_gate():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    with patch("tools.worklog_delete.get_client", return_value=mock_client):
+        result = worklog_delete.worklog_delete("PAY-1", "28459")
+    assert result["confirmed"] is True
 
 
 def test_transition_requires_confirmation_by_default():

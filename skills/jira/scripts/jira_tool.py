@@ -13,11 +13,14 @@ Usage:
     python scripts/jira_tool.py blockers --issue_key PAY-123
     python scripts/jira_tool.py search --jql "assignee = currentUser()"
     python scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \\
-        --description "implementing validation" [--confirm]
+        --description "implementing validation" [--date 2026-07-20] [--confirm]
     python scripts/jira_tool.py transition --issue_key PAY-123 --status Review [--confirm]
     python scripts/jira_tool.py sprint [--board_id 3]
     python scripts/jira_tool.py worklog_report [--since -14d] [--until ...] [--max_issues 50]
     python scripts/jira_tool.py list_fields
+    python scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \\
+        [--duration 2h] [--description "..."] [--date 2026-07-20] [--confirm]
+    python scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 [--confirm]
 
 Every subcommand prints JSON only (never prose) and always exits 0 on a
 handled error -- failures are reported as {"error": {...}} in the JSON
@@ -45,6 +48,8 @@ from tools import (  # noqa: E402
     sprint,
     transition,
     worklog,
+    worklog_delete,
+    worklog_edit,
     worklog_report,
 )
 
@@ -87,6 +92,13 @@ def build_parser() -> argparse.ArgumentParser:
     _add_common(p, issue_key=True)
     p.add_argument("--duration", required=True, help='Jira-style duration, e.g. "2h", "1d 30m"')
     p.add_argument("--description", required=True)
+    p.add_argument(
+        "--date",
+        default=None,
+        help='When the work happened: relative ("-1d"), ISO date ("2026-07-20"), or ISO '
+        "datetime. Resolve relative phrasing (e.g. \"last Tuesday\") to an actual calendar "
+        "date yourself first. Default: now.",
+    )
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser("sprint", help="Active sprint, board, dates, and goal")
@@ -100,6 +112,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max_issues", type=int, default=50)
 
     subparsers.add_parser("list_fields", help="Enumerate every field this Jira instance knows about")
+
+    p = subparsers.add_parser("worklog_edit", help="Update an existing worklog entry (write, gated)")
+    _add_common(p, issue_key=True)
+    p.add_argument("--worklog_id", required=True, help="Worklog entry id, e.g. from issue_summary's worklogs[].id")
+    p.add_argument("--duration", default=None, help='New duration, e.g. "2h" (omit to leave unchanged)')
+    p.add_argument("--description", default=None, help="New description (omit to leave unchanged)")
+    p.add_argument("--date", default=None, help="New date, same formats as worklog --date (omit to leave unchanged)")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser("worklog_delete", help="Permanently delete a worklog entry (write, gated)")
+    _add_common(p, issue_key=True)
+    p.add_argument("--worklog_id", required=True, help="Worklog entry id, e.g. from issue_summary's worklogs[].id")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     return parser
 
@@ -117,13 +142,26 @@ def dispatch(args: argparse.Namespace):
     if args.tool == "transition":
         return transition.transition(args.issue_key, args.status, confirm=args.confirm)
     if args.tool == "worklog":
-        return worklog.worklog(args.issue_key, args.duration, args.description, confirm=args.confirm)
+        return worklog.worklog(
+            args.issue_key, args.duration, args.description, date=args.date, confirm=args.confirm
+        )
     if args.tool == "sprint":
         return sprint.sprint(board_id=args.board_id)
     if args.tool == "worklog_report":
         return worklog_report.worklog_report(since=args.since, until=args.until, max_issues=args.max_issues)
     if args.tool == "list_fields":
         return list_fields.list_fields()
+    if args.tool == "worklog_edit":
+        return worklog_edit.worklog_edit(
+            args.issue_key,
+            args.worklog_id,
+            duration=args.duration,
+            description=args.description,
+            date=args.date,
+            confirm=args.confirm,
+        )
+    if args.tool == "worklog_delete":
+        return worklog_delete.worklog_delete(args.issue_key, args.worklog_id, confirm=args.confirm)
     raise AssertionError(f"Unhandled tool: {args.tool}")  # unreachable: argparse enforces choices
 
 

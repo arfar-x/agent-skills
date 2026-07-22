@@ -65,15 +65,26 @@ python3 scripts/jira_tool.py <tool> [--flags...]
    one.
 4. **Never guess ticket status.** Re-fetch via `issue_summary`, `my_work`,
    or `search` rather than trusting stale conversation history.
-5. **Write operations require confirmation.** `transition` and `worklog`
-   refuse to execute unless run with `--confirm` (this is enforced in
-   code, not just prompted). Unless `JIRA_AUTO_CONFIRM_WRITES=true` is
-   set:
-   - State exactly what you're about to do and wait for the user's
-     explicit yes.
+5. **Write operations require confirmation.** `transition`, `worklog`,
+   `worklog_edit`, and `worklog_delete` refuse to execute unless run
+   with `--confirm` (this is enforced in code, not just prompted).
+   Unless `JIRA_AUTO_CONFIRM_WRITES=true` is set:
+   - State exactly what you're about to do -- **including the date**
+     for `worklog` if it isn't today -- and wait for the user's explicit
+     yes.
    - Only then re-run the same command with `--confirm` appended.
    - If a result has `"requires_confirmation": true`, treat that as the
-     tool declining to act -- relay `pending_action` to the user and ask.
+     tool declining to act -- relay `pending_action` (which echoes back
+     `date`/`started` for worklogs) to the user and ask.
+   - For `worklog`/`worklog_edit --date`: resolve relative day-names
+     ("last Tuesday", "yesterday") to an actual calendar date yourself
+     first -- you know today's date; the tool only accepts unambiguous
+     dates, and silently defaulting to today when the user meant a
+     different day is exactly the kind of mistake this rule exists to
+     prevent.
+   - `worklog_delete` is destructive and irreversible -- confirm which
+     specific entry (issue, duration, date, description if known)
+     before deleting, don't just confirm "delete a worklog".
 6. **Chain tool calls when needed.** E.g. "what should I work on next,
    and is anything blocking it?" = `my_work` first, then `blockers` on
    the top candidate(s).
@@ -105,13 +116,23 @@ python3 scripts/jira_tool.py sprint
 # Your logged time over a date range, vs. each issue's original estimate
 python3 scripts/jira_tool.py worklog_report --since -14d [--until 2026-07-20] [--max_issues 50]
 
-# Log time (write, gated -- see rule 5)
+# Log time (write, gated -- see rule 5); --date defaults to now, accepts
+# a relative offset ("-1d"), ISO date, or ISO datetime -- resolve
+# relative day-names to an actual date yourself first (rule 5)
 python3 scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
-  --description "implementing validation" --confirm
+  --description "implementing validation" [--date 2026-07-20] --confirm
 
 # Move to a status (write, gated -- see rule 5); target status/transition
 # name is resolved automatically, no need to know Jira's internal IDs
 python3 scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
+
+# Fix a worklog's duration/description/date (write, gated -- see rule 5);
+# find --worklog_id via issue_summary's worklogs[].id
+python3 scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
+  [--duration 2h] [--description "..."] [--date 2026-07-20] --confirm
+
+# Permanently delete a worklog entry (write, gated, irreversible -- see rule 5)
+python3 scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
 ```
 
 ## Examples
@@ -132,6 +153,26 @@ language summary of status, recent activity, and any linked work.
 **"Log 2h on PAY-412 for implementing validation."**
 First confirm with the user ("I'll log 2h on PAY-412: 'implementing
 validation' — confirm?"), then run `worklog ... --confirm`.
+
+**"Log 4h30m on PAY-412 for last Tuesday."**
+Resolve "last Tuesday" to an actual calendar date yourself (you know
+today's date), then confirm with the user including that resolved date
+("I'll log 4h 30m on PAY-412 dated 2026-07-20 — confirm?"), then run
+`worklog --issue_key PAY-412 --duration 4h30m --description "..." --date 2026-07-20 --confirm`.
+Never omit `--date` when the user specified a day other than today --
+omitting it logs against right now, silently on the wrong day.
+
+**"That worklog is on the wrong day, it should be Tuesday not Thursday."**
+Find the worklog's id (via `issue_summary`'s `worklogs[].id`, or from
+the id a prior `worklog` call returned), resolve "Tuesday" to an actual
+date, confirm with the user, then run `worklog_edit --issue_key ... --worklog_id ... --date 2026-07-20 --confirm`.
+Don't create a new worklog and leave the wrong one in place -- edit the
+existing entry, or delete-and-recreate only if the user asks for that
+specifically.
+
+**"Delete that worklog, I logged it by mistake."**
+Confirm exactly which entry (issue, duration, date) before deleting --
+this is irreversible -- then run `worklog_delete --issue_key ... --worklog_id ... --confirm`.
 
 **"Move PAY-412 to Review."**
 Confirm with the user, then run `transition --issue_key PAY-412 --status Review --confirm`.
@@ -189,5 +230,5 @@ over already-returned structured data, not a new tool per phrasing.
 
 See `README.md` in this skill directory for architecture details, the
 full environment-variable table, and how to run the test suite
-(`pytest`, 72 tests covering the client, config validation, and every
+(`pytest`, 95 tests covering the client, config validation, and every
 tool's success/error/confirmation paths).

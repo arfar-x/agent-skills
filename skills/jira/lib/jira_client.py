@@ -601,6 +601,46 @@ class JiraClient:
         raw = self._request("POST", f"{self.API_V2}/issue/{issue_key}/worklog", json_body=body)
         return self._build_worklog(raw)
 
+    def update_worklog(
+        self,
+        issue_key: str,
+        worklog_id: str,
+        *,
+        duration_seconds: Optional[int] = None,
+        description: Optional[str] = None,
+        started: Optional[str] = None,
+    ) -> Worklog:
+        """Update an existing worklog entry. Only the given fields are changed."""
+        self._require_issue_key(issue_key)
+        if not worklog_id or not str(worklog_id).strip():
+            raise JiraValidationError("worklog_id is required.")
+        if duration_seconds is not None and duration_seconds <= 0:
+            raise JiraValidationError("Worklog duration_seconds must be positive.")
+
+        body: Dict[str, Any] = {}
+        if duration_seconds is not None:
+            body["timeSpentSeconds"] = duration_seconds
+        if description is not None:
+            body["comment"] = description
+        if started is not None:
+            body["started"] = started
+        if not body:
+            raise JiraValidationError(
+                "At least one of duration_seconds/description/started must be provided."
+            )
+
+        raw = self._request(
+            "PUT", f"{self.API_V2}/issue/{issue_key}/worklog/{worklog_id}", json_body=body
+        )
+        return self._build_worklog(raw)
+
+    def delete_worklog(self, issue_key: str, worklog_id: str) -> None:
+        """Permanently delete a worklog entry. Cannot be undone."""
+        self._require_issue_key(issue_key)
+        if not worklog_id or not str(worklog_id).strip():
+            raise JiraValidationError("worklog_id is required.")
+        self._request("DELETE", f"{self.API_V2}/issue/{issue_key}/worklog/{worklog_id}")
+
     def get_transitions(self, issue_key: str) -> List[Transition]:
         """List transitions currently available for an issue."""
         self._require_issue_key(issue_key)

@@ -140,6 +140,72 @@ def test_add_worklog_builds_request_body(client, mock_session):
     assert kwargs["json"] == {"timeSpentSeconds": 7200, "comment": "did work"}
 
 
+def test_add_worklog_includes_started_when_given(client, mock_session):
+    mock_session.request.return_value = make_response(
+        json_data={
+            "id": "1",
+            "author": {"displayName": "Alice"},
+            "timeSpent": "2h",
+            "timeSpentSeconds": 7200,
+            "comment": "did work",
+            "started": "2026-07-20T09:00:00.000+0000",
+        }
+    )
+    client.add_worklog("PAY-1", 7200, "did work", started="2026-07-20T09:00:00.000+0000")
+
+    _, kwargs = mock_session.request.call_args
+    assert kwargs["json"] == {
+        "timeSpentSeconds": 7200,
+        "comment": "did work",
+        "started": "2026-07-20T09:00:00.000+0000",
+    }
+
+
+def test_update_worklog_sends_only_provided_fields(client, mock_session):
+    mock_session.request.return_value = make_response(
+        json_data={
+            "id": "28459",
+            "author": {"displayName": "Alice"},
+            "timeSpent": "1h",
+            "timeSpentSeconds": 3600,
+            "comment": "did work",
+            "started": "2026-07-20T09:00:00.000+0000",
+        }
+    )
+    worklog = client.update_worklog("PAY-1", "28459", duration_seconds=3600)
+    assert worklog.time_spent_seconds == 3600
+
+    method, url = mock_session.request.call_args[0][:2]
+    _, kwargs = mock_session.request.call_args
+    assert method == "PUT"
+    assert url.endswith("/issue/PAY-1/worklog/28459")
+    assert kwargs["json"] == {"timeSpentSeconds": 3600}
+
+
+def test_update_worklog_rejects_when_no_fields_given(client):
+    with pytest.raises(JiraValidationError):
+        client.update_worklog("PAY-1", "28459")
+
+
+def test_update_worklog_rejects_missing_worklog_id(client):
+    with pytest.raises(JiraValidationError):
+        client.update_worklog("PAY-1", "", duration_seconds=3600)
+
+
+def test_delete_worklog_issues_delete_request(client, mock_session):
+    mock_session.request.return_value = make_response(status_code=204)
+    client.delete_worklog("PAY-1", "28459")
+
+    method, url = mock_session.request.call_args[0][:2]
+    assert method == "DELETE"
+    assert url.endswith("/issue/PAY-1/worklog/28459")
+
+
+def test_delete_worklog_rejects_missing_worklog_id(client):
+    with pytest.raises(JiraValidationError):
+        client.delete_worklog("PAY-1", "")
+
+
 def test_add_worklog_rejects_non_positive_duration(client):
     with pytest.raises(JiraValidationError):
         client.add_worklog("PAY-1", 0, "no time")

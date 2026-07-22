@@ -22,8 +22,9 @@ assume any particular agent runtime.
   defines the single rule set for what counts as "blocked" (status flags,
   unresolved "blocked by" links, flagged comments). `blockers()` and
   `my_work()` both use it, so they can never disagree.
-- **Write operations are gated.** `worklog()` and `transition()` refuse
-  to execute unless called with `confirm=true` (CLI: `--confirm`), or
+- **Write operations are gated.** `worklog()`, `worklog_edit()`,
+  `worklog_delete()`, and `transition()` refuse to execute unless
+  called with `confirm=true` (CLI: `--confirm`), or
   `JIRA_AUTO_CONFIRM_WRITES=true` is set. This backs up `SKILL.md`'s
   confirmation rule with an enforced safety net in code.
 
@@ -90,7 +91,9 @@ Jira Server/Data Center.
 | `blockers(issue_key)` | Read | `{"blocked": bool, "reasons": [...]}` from links/status/comments |
 | `search(jql, fields)` | Read | Arbitrary JQL, structured issue results (incl. description/components/subtasks/custom fields) |
 | `transition(issue_key, status, confirm)` | Write (gated) | Move an issue to a status; transition IDs resolved automatically |
-| `worklog(issue_key, duration, description, confirm)` | Write (gated) | Log time against an issue |
+| `worklog(issue_key, duration, description, date, confirm)` | Write (gated) | Log time against an issue, optionally backdated |
+| `worklog_edit(issue_key, worklog_id, duration, description, date, confirm)` | Write (gated) | Update an existing worklog's duration/description/date |
+| `worklog_delete(issue_key, worklog_id, confirm)` | Write (gated) | Permanently delete a worklog entry |
 | `sprint(board_id)` | Read | Active sprint, board, dates, and goal |
 | `worklog_report(since, until, max_issues)` | Read | Aggregate your logged time over a date range vs. each issue's estimate |
 | `list_fields()` | Read | Enumerate every field (incl. custom fields) to discover a custom field's id by name |

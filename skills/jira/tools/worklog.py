@@ -10,20 +10,38 @@ unless JIRA_AUTO_CONFIRM_WRITES is enabled.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from lib.jira_client import get_client
-from lib.utils import InvalidDurationError, parse_duration_to_seconds
+from lib.utils import (
+    InvalidDateError,
+    InvalidDurationError,
+    format_jira_timestamp,
+    parse_duration_to_seconds,
+    parse_worklog_date,
+)
 from tools._common import ToolInputError, require_str, run_tool
 
 
-def worklog(issue_key: str, duration: str, description: str, confirm: bool = False) -> Dict[str, Any]:
+def worklog(
+    issue_key: str,
+    duration: str,
+    description: str,
+    date: Optional[str] = None,
+    confirm: bool = False,
+) -> Dict[str, Any]:
     """Submit a worklog entry.
 
     Args:
         issue_key: Issue key, e.g. ``PAY-412``.
         duration: Jira-style duration string, e.g. ``"2h"``, ``"1d 30m"``.
         description: Free-text description of the work performed.
+        date: When the work happened -- a JQL-style relative date
+            (``"-1d"``), an ISO date (``"2026-07-20"``), or a full ISO
+            datetime. Defaults to now (Jira's own default) if omitted.
+            Resolve relative phrasing like "last Tuesday" to an actual
+            calendar date yourself before calling this -- this tool only
+            accepts unambiguous dates, not natural language.
         confirm: Must be ``True`` (or JIRA_AUTO_CONFIRM_WRITES=true) for
             the worklog to actually be submitted. Hermes should set this
             only after the user has explicitly confirmed the action.
@@ -45,6 +63,13 @@ def worklog(issue_key: str, duration: str, description: str, confirm: bool = Fal
         except InvalidDurationError as exc:
             raise ToolInputError(str(exc)) from exc
 
+        started = None
+        if date:
+            try:
+                started = format_jira_timestamp(parse_worklog_date(date))
+            except InvalidDateError as exc:
+                raise ToolInputError(str(exc)) from exc
+
         client = get_client()
 
         if not confirm and not client.config.auto_confirm_writes:
@@ -57,10 +82,12 @@ def worklog(issue_key: str, duration: str, description: str, confirm: bool = Fal
                     "duration": duration,
                     "duration_seconds": seconds,
                     "description": desc,
+                    "date": date,
+                    "started": started,
                 },
             }
 
-        created = client.add_worklog(key, seconds, desc)
+        created = client.add_worklog(key, seconds, desc, started=started)
         return {"confirmed": True, "issue_key": key, "worklog": created.to_dict()}
 
     return run_tool("worklog", _run)

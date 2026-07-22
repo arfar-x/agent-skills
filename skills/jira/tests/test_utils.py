@@ -8,11 +8,13 @@ from lib.utils import (
     InvalidDurationError,
     adf_to_plain_text,
     blocking_reasons,
+    format_jira_timestamp,
     is_issue_blocked,
     jql_date_literal,
     parse_duration_to_seconds,
     parse_jira_timestamp,
     parse_jql_date,
+    parse_worklog_date,
     safe_get,
 )
 
@@ -165,3 +167,30 @@ def test_parse_jira_timestamp_with_milliseconds():
 def test_parse_jira_timestamp_rejects_empty():
     with pytest.raises(InvalidDateError):
         parse_jira_timestamp("")
+
+
+def test_parse_worklog_date_bare_date_inherits_current_time_of_day():
+    now = dt.datetime(2026, 7, 23, 14, 30, 5, tzinfo=dt.timezone.utc)
+    parsed = parse_worklog_date("2026-07-20", now=now)
+    assert parsed == dt.datetime(2026, 7, 20, 14, 30, 5, tzinfo=dt.timezone.utc)
+
+
+def test_parse_worklog_date_relative_uses_full_now():
+    now = dt.datetime(2026, 7, 23, 14, 30, 5, tzinfo=dt.timezone.utc)
+    parsed = parse_worklog_date("-3d", now=now)
+    assert parsed == now - dt.timedelta(days=3)
+
+
+def test_parse_worklog_date_full_datetime_passes_through():
+    parsed = parse_worklog_date("2026-07-20T09:15:00+00:00")
+    assert parsed == dt.datetime(2026, 7, 20, 9, 15, tzinfo=dt.timezone.utc)
+
+
+def test_format_jira_timestamp():
+    value = dt.datetime(2026, 7, 20, 9, 0, tzinfo=dt.timezone.utc)
+    assert format_jira_timestamp(value) == "2026-07-20T09:00:00.000+0000"
+
+
+def test_format_jira_timestamp_assumes_utc_when_naive():
+    value = dt.datetime(2026, 7, 20, 9, 0)
+    assert format_jira_timestamp(value) == "2026-07-20T09:00:00.000+0000"
