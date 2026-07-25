@@ -164,6 +164,57 @@ single place to see everything installable at a glance.
    for Jira that's `JIRA_BASE_URL` / `JIRA_USERNAME` / `JIRA_PASSWORD`).
    Where those variables need to live differs by runtime -- see below.
 
+### Installing via `npx skills`
+
+[`npx skills`](https://github.com/vercel-labs/skills) is a third-party
+CLI (not part of the Agent Skills spec itself) that fetches `SKILL.md`
+directories straight from a GitHub repo into whichever agent's config
+directory it detects (Claude Code, Cursor, and others) -- no local clone
+or `pip install` step needed on your end. It already recognizes this
+repo's `skills/` layout as a standard skills location, so no special
+path argument is required.
+
+```bash
+# See every skill this repo exposes before installing anything:
+npx skills add arfar-x/agent-skills --list
+
+# Install one or more specific skills by name:
+npx skills add arfar-x/agent-skills --skill jira --skill jira-my-work
+
+# Install every skill in the repo:
+npx skills add arfar-x/agent-skills --all
+
+# Target a specific agent explicitly (autodetected otherwise):
+npx skills add arfar-x/agent-skills -a claude-code --skill jira
+```
+
+This only fetches `SKILL.md` and its bundled files -- it does **not**
+install Python dependencies or set environment variables. After
+installing, still run step 2 (`pip install -r skills/jira/requirements.txt`,
+against whichever Python environment your agent actually executes shell
+commands in) and step 3 (export the toolset's required env vars) above.
+
+**Keeping installed skills in sync:** `npx skills` copies files at
+install time; it does not auto-track upstream changes. When this repo's
+skills change (a new commit adds a rule, a new tool, a renamed skill),
+re-run:
+
+```bash
+# Re-pull everything you previously installed from this repo:
+npx skills update
+
+# Or re-pull specific skills by name:
+npx skills update jira jira-my-work
+```
+
+If you instead cloned the repo directly (see steps 1-3 above, or the
+Hermes `external_dirs` / Claude Code symlink approaches below), staying
+in sync is just `git pull` -- skills run straight out of the checkout,
+so there's nothing else to re-install. A symlinked or `external_dirs`-registered
+skill always reflects the latest commit the moment you pull; only a
+copied directory (`cp -r`, or a claude.ai zip upload) needs to be
+manually redone after each pull.
+
 ### Hermes Agent
 
 - **Discovery**: point `skills.external_dirs` in `~/.hermes/config.yaml`
