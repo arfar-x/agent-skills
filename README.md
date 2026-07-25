@@ -31,6 +31,7 @@ skills/
 ├── jira-worklog-edit/     # Thin skill: fix a worklog's duration/description/date (write, confirm-gated)
 ├── jira-worklog-delete/   # Thin skill: permanently delete a worklog (write, confirm-gated)
 ├── jira-log/               # Orchestrator: log/edit/delete a worklog, routed by intent (write, confirm-gated)
+├── jira-track/             # Track a day's work as it's narrated, then log it (write, confirm-gated)
 ├── jira-status/           # Thin skill: move an issue's status (write, confirm-gated)
 ├── jira-worklog-report/   # Thin skill: logged time vs. estimate over a date range
 ├── jira-triage/           # Thin skill: group stories with their labeled subtasks for FE/BE/design triage
@@ -91,6 +92,7 @@ single place to see everything installable at a glance.
 | `jira-worklog-edit` | [jira](skills/jira) | Write (gated) | Update an existing worklog's duration/description/date |
 | `jira-worklog-delete` | [jira](skills/jira) | Write (gated) | Permanently delete a worklog entry |
 | `jira-log` | [jira](skills/jira) | Write (gated) | Orchestrator: routes to `jira-worklog`/`jira-worklog-edit`/`jira-worklog-delete` by intent |
+| `jira-track` | [jira](skills/jira) | Write (gated) | Track a day's work as the user narrates it, separate interruptions from focused time, then log each issue |
 | `jira-status` | [jira](skills/jira) | Write (gated) | Move an issue to a new status |
 | `jira-worklog-report` | [jira](skills/jira) | Read | Logged time vs. estimate over a date range, per issue and total |
 | `jira-triage` | [jira](skills/jira) | Read | Group unresolved stories/bugs/tasks with their labeled subtasks, for frontend/backend/design-readiness triage |

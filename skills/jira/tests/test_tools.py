@@ -10,6 +10,7 @@ from tools import (
     kanban_status,
     list_fields,
     my_work,
+    now,
     project_context,
     search,
     search_users,
@@ -350,6 +351,41 @@ def test_list_fields_returns_client_result():
     assert result == [{"id": "summary", "name": "Summary", "custom": False}]
 
 
+def test_now_reports_a_timezone_aware_local_timestamp():
+    import datetime as dt
+
+    fixed = dt.datetime(2026, 7, 25, 14, 32, 11, 500000, tzinfo=dt.timezone(dt.timedelta(hours=3, minutes=30)))
+
+    class _FixedDatetime(dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    with patch("tools.now._dt.datetime", _FixedDatetime):
+        result = now.now()
+
+    assert result["now"] == "2026-07-25T14:32:11+03:30"
+    assert result["date"] == "2026-07-25"
+    assert result["time"] == "14:32"
+    assert result["weekday"] == "Saturday"
+    assert result["timezone"] == "+0330"
+
+
+def test_now_output_is_accepted_by_worklogs_date_parser():
+    """`now` is only useful if worklog --date takes it verbatim."""
+    from lib.utils import format_jira_timestamp, parse_worklog_date
+
+    result = now.now()
+    parsed = parse_worklog_date(result["now"])
+
+    assert parsed.tzinfo is not None
+    assert parsed.strftime("%Y-%m-%d") == result["date"]
+    assert parsed.strftime("%H:%M") == result["time"]
+    assert parsed.strftime("%A") == result["weekday"]
+    # And round-trips into the timestamp format the client actually sends.
+    assert format_jira_timestamp(parsed).startswith(result["date"])
+
+
 def test_triage_delegates_to_client_and_returns_result():
     mock_client = MagicMock()
     mock_client.triage.return_value = {"project": "PAYKAN", "issue_count": 0, "stories": []}
@@ -645,9 +681,9 @@ def test_sprint_reports_kanban_note_instead_of_querying_sprints():
     mock_client = MagicMock()
     from lib.models import Board
 
-    mock_client.current_board.return_value = Board(4, "DATKAN board", "kanban")
+    mock_client.current_board.return_value = Board(4, "PAYKAN board", "kanban")
     with patch("tools.sprint.get_client", return_value=mock_client):
-        result = sprint.sprint(project="DATKAN")
+        result = sprint.sprint(project="PAYKAN")
     assert result["sprint"] is None
     assert "kanban" in result["note"].lower()
     mock_client.current_sprint.assert_not_called()
@@ -656,12 +692,12 @@ def test_sprint_reports_kanban_note_instead_of_querying_sprints():
 def test_sprint_reports_note_when_no_board_found_for_project():
     mock_client = MagicMock()
     mock_client.current_board.return_value = None
-    mock_client.resolve_project.return_value = "DATKAN"
+    mock_client.resolve_project.return_value = "PAYKAN"
     with patch("tools.sprint.get_client", return_value=mock_client):
-        result = sprint.sprint(project="DATKAN")
+        result = sprint.sprint(project="PAYKAN")
     assert result["board"] is None
     assert result["sprint"] is None
-    assert "DATKAN" in result["note"]
+    assert "PAYKAN" in result["note"]
 
 
 def test_sprint_explicit_board_id_skips_project_resolution():
@@ -678,16 +714,16 @@ def test_kanban_status_resolves_board_from_project():
     mock_client = MagicMock()
     from lib.models import Board
 
-    mock_client.current_board.return_value = Board(4, "DATKAN board", "kanban")
+    mock_client.current_board.return_value = Board(4, "PAYKAN board", "kanban")
     mock_client.kanban_status.return_value = {
         "board_id": 4,
         "columns": ["To Do", "Done"],
         "issue_counts_by_column": {"To Do": 2, "Done": 5},
     }
     with patch("tools.kanban_status.get_client", return_value=mock_client):
-        result = kanban_status.kanban_status(project="DATKAN")
+        result = kanban_status.kanban_status(project="PAYKAN")
     assert result["board_id"] == 4
-    mock_client.current_board.assert_called_once_with(project="DATKAN")
+    mock_client.current_board.assert_called_once_with(project="PAYKAN")
     mock_client.kanban_status.assert_called_once_with(4)
 
 

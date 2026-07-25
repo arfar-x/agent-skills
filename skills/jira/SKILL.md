@@ -80,8 +80,9 @@ python3 scripts/jira_tool.py <tool> [--flags...]
      tool declining to act -- relay `pending_action` (which echoes back
      `date`/`started` for worklogs) to the user and ask.
    - For `worklog`/`worklog_edit --date`: resolve relative day-names
-     ("last Tuesday", "yesterday") to an actual calendar date yourself
-     first -- you know today's date; the tool only accepts unambiguous
+     ("last Tuesday", "yesterday", "now") to an actual calendar date
+     yourself first -- run `now` to get the real current date/time rather
+     than assuming you know it, since the tool only accepts unambiguous
      dates, and silently defaulting to today when the user meant a
      different day is exactly the kind of mistake this rule exists to
      prevent.
@@ -286,6 +287,12 @@ python3 scripts/jira_tool.py search --jql "assignee = currentUser() AND updated 
 # Enumerate every field (incl. custom fields) to discover a custom field's id by name
 python3 scripts/jira_tool.py list_fields
 
+# Current local wall-clock time. No Jira call. Run this before resolving
+# any relative date ("now", "yesterday", "last Tuesday") for a write --
+# your own sense of the time is often stale or absent (rule 5). Its "now"
+# field is a full ISO timestamp that --date accepts verbatim.
+python3 scripts/jira_tool.py now
+
 # Reference snapshot of a project: issue types, workflow statuses (overall
 # and per issue type), components, instance priorities, assignable users,
 # and a sample of labels in use -- call once per project, remember the
@@ -412,8 +419,8 @@ First confirm with the user ("I'll log 2h on PAY-412: 'implementing
 validation' — confirm?"), then run `worklog ... --confirm`.
 
 **"Log 4h30m on PAY-412 for last Tuesday."**
-Resolve "last Tuesday" to an actual calendar date yourself (you know
-today's date), then confirm with the user including that resolved date
+Run `now` to get today's real date/weekday, resolve "last Tuesday"
+against it, then confirm with the user including that resolved date
 ("I'll log 4h 30m on PAY-412 dated 2026-07-20 — confirm?"), then run
 `worklog --issue_key PAY-412 --duration 4h30m --description "..." --date 2026-07-20 --confirm`.
 Never omit `--date` when the user specified a day other than today --
@@ -433,6 +440,21 @@ this is irreversible -- then run `worklog_delete --issue_key ... --worklog_id ..
 (The `jira-log` thin skill packages this same log-vs-edit-vs-delete
 routing as its own dedicated command, for a caller that just wants "the
 worklog skill" without picking the exact sub-action itself.)
+
+**"I'm starting on the export logs now."** ... later ... **"two bugs came
+in, took an hour total."** ... later ... **"after that, 3h on the logs."**
+The user is narrating a day rather than naming one worklog. Run `now`
+when work starts (you don't otherwise know the time) and keep the
+running timeline in your replies -- restating it compactly each turn is
+what carries it forward. Work described in past tense with a duration
+("took an hour") is a finished stretch that *interrupted* something, so
+it never overlaps the surrounding task and the interrupted task isn't
+credited that hour: here the logs task ends at 3h, not 4h. A stated
+duration beats one inferred from the clock. At the end, group by issue,
+show the whole breakdown, resolve anything not yet tied to a real key,
+then confirm and log one issue at a time with `--date` set to that
+stretch's actual start timestamp. The `jira-track` thin skill packages
+this whole flow as its own dedicated command.
 
 **"Move PAY-412 to Review."**
 Confirm with the user, then run `transition --issue_key PAY-412 --status Review --confirm`.

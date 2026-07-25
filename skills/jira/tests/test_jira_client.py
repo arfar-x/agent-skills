@@ -716,13 +716,13 @@ def test_project_context_paginates_users_instead_of_one_large_page(client, mock_
 
 def test_current_board_scopes_lookup_to_resolved_project(client, mock_session):
     mock_session.request.return_value = make_response(
-        json_data={"values": [{"id": 4, "name": "DATKAN board", "type": "kanban"}]}
+        json_data={"values": [{"id": 4, "name": "PAYKAN board", "type": "kanban"}]}
     )
-    board = client.current_board(project="DATKAN")
+    board = client.current_board(project="PAYKAN")
     assert board.id == 4
     assert board.type == "kanban"
     _, kwargs = mock_session.request.call_args
-    assert kwargs["params"]["projectKeyOrId"] == "DATKAN"
+    assert kwargs["params"]["projectKeyOrId"] == "PAYKAN"
 
 
 def test_current_board_falls_back_to_default_project_from_config(jira_config, mock_session):
@@ -730,14 +730,14 @@ def test_current_board_falls_back_to_default_project_from_config(jira_config, mo
 
     from lib.jira_client import JiraClient
 
-    config = replace(jira_config, default_project="DATKAN")
+    config = replace(jira_config, default_project="PAYKAN")
     client = JiraClient(config=config, session=mock_session)
     mock_session.request.return_value = make_response(
-        json_data={"values": [{"id": 4, "name": "DATKAN board", "type": "kanban"}]}
+        json_data={"values": [{"id": 4, "name": "PAYKAN board", "type": "kanban"}]}
     )
     client.current_board()
     _, kwargs = mock_session.request.call_args
-    assert kwargs["params"]["projectKeyOrId"] == "DATKAN"
+    assert kwargs["params"]["projectKeyOrId"] == "PAYKAN"
 
 
 def test_current_board_unscoped_when_no_project_resolves(client, mock_session):
@@ -751,7 +751,7 @@ def test_current_board_unscoped_when_no_project_resolves(client, mock_session):
 
 def test_current_board_returns_none_when_project_has_no_board(client, mock_session):
     mock_session.request.return_value = make_response(json_data={"values": []})
-    board = client.current_board(project="DATKAN")
+    board = client.current_board(project="PAYKAN")
     assert board is None
 
 

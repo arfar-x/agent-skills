@@ -89,6 +89,12 @@ Already know exactly which action you need? `jira-worklog`/
 `jira-worklog-edit`/`jira-worklog-delete` call the same underlying
 commands directly, without the routing step.
 
+This skill assumes the request already names one concrete action on one
+issue. If instead the user is **narrating their day** -- "I'm starting on
+X now", "two bugs came in and took an hour", "log my day" -- use
+`jira-track`, which accumulates the timeline across messages, separates
+interruptions from focused work, and only then logs each issue's time.
+
 If the result contains `"error"`, tell the user what went wrong in
 plain language instead of retrying silently or fabricating a result.
 

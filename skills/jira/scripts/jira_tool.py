@@ -19,6 +19,7 @@ Usage:
     python scripts/jira_tool.py kanban_status [--board_id 3] [--project PAYKAN]
     python scripts/jira_tool.py worklog_report [--since -14d] [--until ...] [--max_issues 50]
     python scripts/jira_tool.py list_fields
+    python scripts/jira_tool.py now
     python scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \\
         [--duration 2h] [--description "..."] [--date 2026-07-20] [--confirm]
     python scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 [--confirm]
@@ -57,6 +58,7 @@ from tools import (  # noqa: E402
     kanban_status,
     list_fields,
     my_work,
+    now,
     project_context,
     search,
     search_users,
@@ -168,6 +170,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max_issues", type=int, default=50)
 
     subparsers.add_parser("list_fields", help="Enumerate every field this Jira instance knows about")
+
+    subparsers.add_parser(
+        "now", help="Current local wall-clock time, for resolving relative dates before a write"
+    )
 
     p = subparsers.add_parser("worklog_edit", help="Update an existing worklog entry (write, gated)")
     _add_common(p, issue_key=True)
@@ -295,6 +301,8 @@ def dispatch(args: argparse.Namespace):
         return worklog_report.worklog_report(since=args.since, until=args.until, max_issues=args.max_issues)
     if args.tool == "list_fields":
         return list_fields.list_fields()
+    if args.tool == "now":
+        return now.now()
     if args.tool == "worklog_edit":
         return worklog_edit.worklog_edit(
             args.issue_key,

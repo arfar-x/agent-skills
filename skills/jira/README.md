@@ -74,6 +74,7 @@ skills/jira/
 │   ├── kanban_status.py
 │   ├── worklog_report.py
 │   ├── list_fields.py
+│   ├── now.py
 │   ├── triage.py
 │   ├── create_issue.py
 │   ├── edit_issue.py
@@ -132,6 +133,7 @@ Jira Server/Data Center.
 | `kanban_status(board_id, project)` | Read | A kanban board's columns and per-column issue counts, resolved the same way as `sprint` |
 | `worklog_report(since, until, max_issues)` | Read | Aggregate your logged time over a date range vs. each issue's estimate |
 | `list_fields()` | Read | Enumerate every field (incl. custom fields) to discover a custom field's id by name |
+| `now()` | Read (local) | Current local wall-clock time, tz-aware, in the ISO format `worklog --date` accepts. The only tool that makes no Jira call -- it exists so relative dates ("now", "last Tuesday") get resolved against a checked clock instead of an assumed one |
 | `triage(project, parent_issue_types, max_results)` | Read | Group unresolved parent issues (Story/Bug/Task) with their labeled subtasks, for frontend/backend/design-readiness triage |
 | `create_issue(project, summary, issue_type, description, parent_key, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Create a new issue or subtask (pass `issue_type="Sub-task"` + `parent_key` for the latter) |
 | `edit_issue(issue_key, summary, description, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Update one or more fields on an existing issue or subtask |
