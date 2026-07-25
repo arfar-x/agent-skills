@@ -34,7 +34,9 @@ hardcode example commands and are not generated from the CLI
 dispatcher's argparse definitions.
 
 When adding a brand-new toolset, follow the "Adding a toolset" section
-in the top-level `README.md`.
+in the top-level `README.md`. See that file's "Agent Skills format"
+section for the open format this repo's `SKILL.md`s follow, and where
+this repo's frontmatter extends it.
 
 ## Conventions
 
@@ -66,6 +68,18 @@ These apply repo-wide, to every toolset, not just Jira:
   in frontmatter for Hermes to key off of. This keeps one `SKILL.md` per
   action usable, unmodified, across every runtime -- only the manifest
   varies by consumer, not the instructions.
+
+- **If a toolset has facts that are stable but not known in advance**
+  (a project's real status names, a board's type, a resolved id for a
+  person/record) **document them in that toolset's `README.md`**, in a
+  section covering what a consuming agent should persist to its own
+  runtime's memory feature and why each fact is safe to cache (see
+  `skills/jira/README.md`'s "Agent memory" section for the pattern).
+  Every skill that touches one of those facts must save it **the moment
+  it's learned, in the same turn** -- not as a follow-up triggered by the
+  user asking "will you remember that?". Waiting to be asked defeats the
+  point: the fact still gets re-fetched (or re-asked) every session until
+  someone happens to check.
 
 Toolset-specific conventions (e.g. "Jira auth is Basic-only, don't
 reintroduce PAT without being asked") belong in that toolset's own

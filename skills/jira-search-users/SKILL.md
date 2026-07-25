@@ -50,10 +50,12 @@ A person's `account_id` doesn't change. If you already know it for this
 project -- from `jira-project-context`'s `users`, your runtime's
 persistent memory, or a prior `search_users` call earlier this
 conversation -- use it directly and skip calling this again. If this
-call resolves a name you'll likely need again, that mapping (name ->
-account_id, scoped to the project) is worth remembering the same way
-`jira-project-context` asks you to remember statuses/team/labels --
-self-learning, not a one-off lookup.
+call resolves a name you'll likely need again, **save that mapping (name
+-> account_id, scoped to the project) in this same turn, unprompted** --
+the same way `jira-project-context` asks you to save statuses/team/
+labels (see `../jira/README.md`'s "Agent memory" section for the full
+catalog). Self-learning, not a one-off lookup, and not something you
+wait to be asked about.
 
 ## Scoping to a project
 

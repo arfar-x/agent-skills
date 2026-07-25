@@ -52,8 +52,10 @@ Kanban, skip this call entirely and go straight to `jira-kanban-status`
 -- don't spend a call confirming something you already know. But don't
 treat a *remembered sprint name/dates* as still current -- always call
 this fresh for the sprint's actual content. If this call teaches you the
-board type/id, that fact is worth remembering for next time (self-
-learning, same as `jira-project-context`'s statuses/team/labels).
+board type/id, **save it in this same turn, unprompted** -- don't wait
+for the user to ask whether you'll remember it (self-learning, same as
+`jira-project-context`'s statuses/team/labels; see `../jira/README.md`'s
+"Agent memory" section for the full catalog of what to save).
 
 Prints one JSON document with the board and active sprint's dates/goal.
 **Not every board has sprints** -- if the resolved board's `type` is

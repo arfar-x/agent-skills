@@ -9,7 +9,46 @@ Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions), with all actual logic
 living in a plain Python CLI invoked via a shell/terminal tool. That
 shape isn't tied to one agent runtime -- see "Installation" and "Usage"
-below for Hermes Agent, Claude Code, and claude.ai specifically.
+below for Hermes Agent, Claude Code, and claude.ai specifically, and
+"Agent Skills format" for the open standard this follows.
+
+## Agent Skills format
+
+Every skill in this repo follows the **Agent Skills** open format:
+
+- Overview: <https://agentskills.io/home>
+- Full specification: <https://agentskills.io/specification>
+
+In its own words, the format defines a skill as "a folder containing a
+`SKILL.md` file. This file includes metadata (`name` and `description`,
+at minimum) and instructions that tell an agent how to perform a
+specific task." Agents load skills through **progressive disclosure**:
+only `name`/`description` at startup (cheap, so many skills can sit
+available at once), the full body only once a task actually matches one,
+and bundled files only as the instructions reference them. That's why
+every `SKILL.md` here front-loads a specific, matchable `description` in
+its frontmatter, and why per-action detail lives in the skill's body
+rather than the frontmatter.
+
+The format was originally developed and published by Anthropic as an
+open standard; it's since been adopted across a large number of agent
+runtimes beyond Claude (see agentskills.io's client showcase), which is
+the whole point of writing skills this way instead of tying them to one
+runtime's proprietary plugin format.
+
+The spec requires only `name`/`description`. This repo's `SKILL.md`s add
+extra frontmatter (`version`, `metadata.hermes.*`, `required_environment_variables`)
+that isn't part of the open spec -- Hermes-specific keys a spec-compliant
+runtime simply doesn't recognize and ignores, per "Frontmatter
+compatibility" below. Nothing about the extension changes how a strictly
+spec-following runtime reads these skills; it only adds information a
+runtime *can* use if it knows to.
+
+Runtime-specific docs, for context (not the spec itself, but the primary
+runtimes this repo is written to run under):
+
+- Claude Code: <https://code.claude.com/docs/en/skills>
+- claude.ai: <https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview>
 
 ## Layout and convention
 
@@ -69,8 +108,10 @@ agent which subcommand to run next, the same as any other instruction in
 this repo.
 
 See `skills/jira/README.md` for that toolset's architecture,
-configuration, and test suite -- future toolsets should have their own
-equivalent README under `skills/<toolset>/`.
+configuration, test suite, and (in its "Agent memory" section) what a
+consuming agent should persist to its own memory feature -- future
+toolsets should have their own equivalent README under
+`skills/<toolset>/`.
 
 ## Tools
 

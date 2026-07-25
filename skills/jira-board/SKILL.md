@@ -69,11 +69,15 @@ type up first:
    the `"note"` naming the project that was searched -- don't guess or
    invent a board.
 
-**Remember the type once you know it.** Save it the same way
-`jira-project-context` asks you to save a project's statuses/team/labels
--- this memory is self-learning. From then on, every future call (from
-this skill, `jira-sprint`, or `jira-kanban-status`) goes straight to step
-1 for this project; step 2 should only happen once per project, ever.
+**Remember the type the instant you know it -- in this same turn, before
+the user has to ask.** Save it the same way `jira-project-context` asks
+you to save a project's statuses/team/labels (see `../jira/README.md`'s
+"Agent memory" section for the full catalog) -- this memory is
+self-learning, and saving is not a follow-up step triggered by the user
+checking whether you'll remember; it happens as part of reporting the
+result itself. From then on, every future call (from this skill,
+`jira-sprint`, or `jira-kanban-status`) goes straight to step 1 for this
+project; step 2 should only happen once per project, ever.
 
 Already know which type of project this is? `jira-sprint`/
 `jira-kanban-status` call the same underlying commands directly, without

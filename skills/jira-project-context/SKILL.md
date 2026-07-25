@@ -50,26 +50,32 @@ down `statuses_by_issue_type`), `components`, instance-wide `priorities`,
 assignable `users`, and a sample of `labels` actually in use -- in a
 single call, to verify against instead of guessing.
 
-## Remember it -- don't re-fetch every turn
+## Remember it -- don't re-fetch every turn, and don't wait to be asked
 
 A project's workflow, team, and label vocabulary don't change often.
 Fetch this once per project and, **if your runtime has a persistent-memory
 feature (something that survives past this turn or this conversation),
-save the interesting parts** as project-scoped facts (e.g. "PAY statuses:
-To Do, In Progress, Review, Done"; "PAY team: Alice, Bob, ..."). Consult
-that memory in later turns and sessions instead of calling this again --
-this tool itself does no caching of its own, so repeat calls always hit
-Jira fresh. Only re-fetch if you have a specific reason to think something
-changed (e.g. the user mentions a status/person that doesn't match what
-you remember).
+save the interesting parts in this same turn** as project-scoped facts
+(e.g. "PAY statuses: To Do, In Progress, Review, Done"; "PAY team: Alice,
+Bob, ..."). Saving is not an optional follow-up you do only if the user
+asks "will you remember that?" -- it's part of reporting the result,
+every time, unprompted. Consult that memory in later turns and sessions
+instead of calling this again -- this tool itself does no caching of its
+own, so repeat calls always hit Jira fresh. Only re-fetch if you have a
+specific reason to think something changed (e.g. the user mentions a
+status/person that doesn't match what you remember).
+
+See `../jira/README.md`'s "Agent memory" section for the exact catalog of
+what to remember and which tool/skill each fact comes from -- it's the
+canonical reference the rest of this toolset's skills point back to.
 
 This same discipline isn't specific to this skill -- it's self-learning
 across the whole toolset. `jira-search-users` (account_ids),
 `jira-sprint`/`jira-kanban-status`/`jira-board` (a project's board
-type/id) each ask the same question before calling anything: do you
-already know this? Whatever any of them teaches you is worth folding
-into the same per-project memory this skill seeds, not just what this
-specific call returns.
+type/id), `jira-status` (the real status/transition names an error
+reveals) each ask the same question before calling anything: do you
+already know this? And each saves what it learns the same way, in the
+same turn -- not just what this specific call returns.
 
 ## Using the result
 

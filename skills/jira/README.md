@@ -6,7 +6,8 @@ assistant -- answering questions like "what should I work on next?" or
 the model. Runtime-specific details (Hermes, Claude Code, claude.ai) are
 confined to `SKILL.md`'s `metadata.hermes` block and the "Installing
 into Hermes" section below -- the skill body and CLI itself don't
-assume any particular agent runtime.
+assume any particular agent runtime. See "Agent memory" below for what a
+consuming agent should remember across turns and sessions.
 
 ## Design
 
@@ -49,6 +50,59 @@ assume any particular agent runtime.
   runtime already does. Both its user list and its label scan walk
   bounded pages via `_paginate()`/`search()` rather than requesting one
   large page of everything.
+
+## Agent memory
+
+This section is for the **agent using these skills**, not for someone
+maintaining this repo (that's the top-level `AGENTS.md`/`CLAUDE.md`). It's
+the canonical catalog every `jira-*` skill's own "check memory first"
+notes point back to, so the rule is written once instead of diverging
+six different ways across skills.
+
+**The rule, stated once:** save a fact to your runtime's
+persistent-memory feature (if it has one) the moment you learn it -- in
+the same turn, unprompted. Not as a follow-up triggered by the user
+asking "will you remember that?" or "do you have this saved?". If a
+runtime waits to be asked before it saves something it was always going
+to need again, it pays the same lookup cost every session and adds a
+round-trip the user shouldn't have to initiate themselves. Saving
+belongs in the same turn as reporting the result -- it is not a
+separate, optional step.
+
+This applies with no toolset-runtime coupling: it's written into each
+skill's `SKILL.md` body (see "Frontmatter compatibility" in the
+top-level `README.md`), so whatever memory mechanism the current runtime
+provides -- Claude Code's memory files, Hermes' memory subsystem, or
+none at all -- gets used the same way. If a runtime has no persistent
+memory, none of this applies past the current conversation; that's fine,
+these are instructions, not a guarantee.
+
+**What to remember, and where each fact comes from:**
+
+| Fact | Source | Why it's safe to cache |
+|---|---|---|
+| Issue types, statuses, `statuses_by_issue_type`, components, priorities, a labels sample | `project_context` | A project's workflow rarely changes; this is the primary seed call -- see `jira-project-context/SKILL.md` |
+| Board type (Scrum vs. Kanban) and board id | `sprint`'s `"note"`, `kanban_status`, or `jira-board` | A project doesn't switch board types turn to turn -- see `jira-board`/`jira-sprint`/`jira-kanban-status`'s `SKILL.md`s |
+| Real transition/status names | A `transition` error's "Available transitions" list, or `project_context`'s `statuses` | Same status set `project_context` already covers; a failed `transition` call is a free opportunity to learn it if you haven't already -- see `jira-status/SKILL.md` |
+| A person's `account_id` (scoped to a project) | `search_users`, or `project_context`'s `users` | An account_id doesn't change once resolved -- see `jira-search-users/SKILL.md` |
+
+**What NOT to remember:** only the *shape* of a project is stable. Never
+treat as memorable:
+
+- **Issue content** -- summaries, descriptions, comments, worklogs.
+  Always fetched fresh (`my_work`, `search`, `issue_summary`).
+- **Anything counted or dated** -- a kanban board's
+  `issue_counts_by_column`, a sprint's active dates/goal, `worklog_report`
+  totals. The type of board is memorable; how many issues are in each
+  column right now is not.
+- **Assignments/status of a specific issue** -- `SKILL.md`'s rule 4
+  already forbids trusting stale conversation history for this; it
+  applies doubly to persistent memory, which outlives even more turns.
+
+If you're ever unsure whether a fact belongs in this list, ask: "would
+this still be true next week without anyone doing anything?" Statuses,
+board type, and account_ids: yes. Everything above in "What NOT to
+remember": no.
 
 ## Project layout
 

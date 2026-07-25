@@ -158,33 +158,40 @@ python3 scripts/jira_tool.py <tool> [--flags...]
     users, `list_fields` for custom fields) rather than guessing your
     way through several variants.
 12. **Remember a project's workflow instead of re-fetching it every
-    turn.** `project_context --project X` returns a project's real
-    `issue_types`, `statuses`, `components`, `priorities`, assignable
-    `users`, and a sample of `labels` in one call -- this is the
-    grounding source rule 11 refers to. Call it once per project; if
-    your runtime has a persistent-memory feature (something that
-    survives past this turn or this conversation), save the interesting
-    parts as project-scoped facts (e.g. "PAY statuses: To Do, In
-    Progress, Review, Done"; "PAY team: Alice, Bob, ...") so later turns
-    and sessions can consult that memory instead of calling
-    `project_context` again -- a project's workflow, team, and label
-    vocabulary don't change often. Use whatever you already know (freshly
-    fetched or remembered) to catch a likely typo or mismatched term in
-    what the user said (e.g. "pended" doesn't match any real status --
-    ask what they meant) instead of guessing blind. **This same
-    remember-don't-reguess discipline applies to a project's board type**
-    (Scrum, with sprints, vs. Kanban, without) -- once `sprint` or
-    `kanban_status` has told you which one a project is, save that fact
-    too (e.g. "PAY: kanban, no sprints"), and use it to decide which of
-    `sprint`/`kanban_status` to call next time, straight away -- a
-    project doesn't switch board types turn to turn, so there's no
-    reason to ever call `sprint` again on that project just to
-    (re-)detect it. This doesn't mean skipping the actual call, though:
-    the sprint's dates/goal, or the kanban board's column counts, are
-    live data you fetch fresh every time -- only the *type*, not the
-    *content*, comes from memory. This memory is self-learning: every
-    call that reveals a new fact about a project (workflow, team, labels,
-    board type) is a chance to add to it, not just consult it.
+    turn -- save it the moment you learn it, don't wait to be asked.**
+    `project_context --project X` returns a project's real `issue_types`,
+    `statuses`, `components`, `priorities`, assignable `users`, and a
+    sample of `labels` in one call -- this is the grounding source rule
+    11 refers to. Call it once per project; if your runtime has a
+    persistent-memory feature (something that survives past this turn or
+    this conversation), **save the interesting parts as project-scoped
+    facts immediately, as part of the same turn you learned them in** --
+    not as a follow-up you do only if the user asks "do you have that
+    remembered?" or "will you remember this?". Saving is not an optional
+    courtesy triggered by the user checking on you; it's the same
+    unprompted step as reporting the result itself. See `README.md`'s
+    "Agent memory" section in this skill's directory for the exact
+    catalog of what to save and where each fact comes from.
+
+    Use whatever you already know (freshly fetched or remembered) to
+    catch a likely typo or mismatched term in what the user said (e.g.
+    "pended" doesn't match any real status -- ask what they meant)
+    instead of guessing blind. **This same remember-immediately
+    discipline applies to a project's board type** (Scrum, with sprints,
+    vs. Kanban, without) -- the instant `sprint`, `kanban_status`, or a
+    `transition` error's list of available statuses tells you which one
+    a project is (or what its real statuses are), save that fact too
+    (e.g. "PAY: kanban, no sprints, statuses: To Do/In Progress/Review/
+    Done") in that same turn, and use it to decide which command to call
+    next time, straight away -- a project doesn't switch board types
+    turn to turn, so there's no reason to ever call `sprint` again on
+    that project just to (re-)detect it. This doesn't mean skipping the
+    actual call, though: the sprint's dates/goal, or the kanban board's
+    column counts, are live data you fetch fresh every time -- only the
+    *type*, not the *content*, comes from memory. This memory is
+    self-learning: every call that reveals a new fact about a project
+    (workflow, team, labels, board type) is a chance to add to it in that
+    same turn, not just consult it.
 13. **Format every response for fast skimming, using the templates
     below.** This applies in every runtime you might be running in, not
     just one particular chat surface -- it's plain markdown plus emoji,
@@ -326,8 +333,12 @@ python3 scripts/jira_tool.py worklog_report --since -14d [--until 2026-07-20] [-
 python3 scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
   --description "implementing validation" [--date 2026-07-20] --confirm
 
-# Move to a status (write, gated -- see rule 5); target status/transition
-# name is resolved automatically, no need to know Jira's internal IDs
+# Move to a status (write, gated -- see rule 5). --status matches
+# case-insensitively against real transition/status names, with a
+# substring fallback ("done" -> "Done") -- pass the user's own word
+# through directly instead of asking them for Jira's exact status name
+# or checking project_context/kanban_status first; if it doesn't match,
+# the error itself lists every real available transition to retry with.
 python3 scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
 
 # Fix a worklog's duration/description/date (write, gated -- see rule 5);
@@ -458,6 +469,19 @@ this whole flow as its own dedicated command.
 
 **"Move PAY-412 to Review."**
 Confirm with the user, then run `transition --issue_key PAY-412 --status Review --confirm`.
+
+**"I merged it, mark PAY-412 as done."** -- colloquial wording, not a
+quoted status name.
+Confirm with the user, then run `transition --issue_key PAY-412 --status
+done --confirm` directly -- `--status` matching is case-insensitive with
+a substring fallback, so the user's own word usually resolves on its
+own. Don't ask them what the exact status name is, and don't spend a
+call on `project_context`/`kanban_status` just to look this up first --
+that's slower and less token-efficient than just trying it. Only if the
+result errors with "does not match any available transition" should you
+act: that error already lists every real transition/status for the
+issue, so read the right one out of it and retry, rather than making a
+separate lookup call.
 
 **"Which of my tickets haven't been updated recently?"**
 Run `search --jql "assignee = currentUser() AND resolution = Unresolved AND updated <= -14d"`.

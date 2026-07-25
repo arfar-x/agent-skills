@@ -52,9 +52,11 @@ never skip *this* call because you remember a prior count, but if you
 already know `--board_id` for this project (from memory, or a prior
 `sprint`/`jira-board` call this conversation), pass it directly instead
 of re-resolving via `--project` each time. Whatever this call teaches
-you about the board itself (id, type, column names) is worth remembering
-for next time (self-learning, same as `jira-project-context`'s
-statuses/team/labels).
+you about the board itself (id, type, column names), **save it in this
+same turn, unprompted** -- don't wait for the user to ask whether you'll
+remember it (self-learning, same as `jira-project-context`'s
+statuses/team/labels; see `../jira/README.md`'s "Agent memory" section
+for the full catalog of what to save).
 
 Prints one JSON document: `{"board_id": ..., "columns": [...],
 "issue_counts_by_column": {...}}` -- `columns` is the board's real
