@@ -68,8 +68,16 @@ just prompted). Unless `JIRA_AUTO_CONFIRM_WRITES=true` is set:
    tool declining to act -- relay `pending_action` to the user and ask,
    don't retry with `--confirm` on your own.
 
-If the result contains `"error"`, tell the user what went wrong in plain
-language instead of retrying silently or fabricating a result.
+If the result contains `"error"`, relay the tool's actual error text to
+the user instead of retrying silently or guessing a cause -- e.g. a
+project without subtasks enabled rejects `--issue_type Sub-task` with a
+specific Jira error naming the problem; quote it. **If a subtask create
+fails, do not fall back to creating a regular (non-subtask) issue as a
+substitute without asking first** -- that produces an unrequested
+duplicate of the parent instead of what the user actually asked for.
+Tell the user the subtask failed and why, then let them choose (retry
+after fixing the project's issue-type config, or explicitly agree to a
+regular linked issue instead) before running anything.
 
 See `../jira/README.md` for architecture details and the full
 environment-variable table.

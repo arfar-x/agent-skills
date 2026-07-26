@@ -93,12 +93,25 @@ python3 scripts/jira_tool.py <tool> [--flags...]
      from a display name -- resolve it via `search_users` first (see
      rule 9), and ask the user if `search_users` returns more than one
      match.
+   - **If the write the user actually asked for fails, never silently
+     substitute a different write as a workaround** (e.g. creating a
+     regular issue because a subtask create failed, or logging to a
+     different issue because the right one couldn't be resolved). Report
+     the failure per rule 7 and treat the alternative as its own new
+     write action -- state it and get it confirmed the same way as any
+     other write (per this rule), rather than running it on the back of
+     consent the user only gave for the original request.
 6. **Chain tool calls when needed.** E.g. "what should I work on next,
    and is anything blocking it?" = `my_work` first, then `blockers` on
    the top candidate(s).
-7. **If a result contains `"error"`,** tell the user what went wrong in
-   plain language (not found, permission denied, invalid JQL, etc.)
-   instead of retrying silently or fabricating a result.
+7. **If a result contains `"error"`,** relay the tool's actual error
+   text (or a faithful paraphrase of it) so the user knows exactly what
+   Jira rejected -- don't retry silently, and don't invent a
+   plausible-sounding cause you haven't actually confirmed from the
+   JSON. A guessed explanation ("the parent didn't have a usable
+   structure yet") is exactly the kind of fabrication rule 2 already
+   forbids for issue data -- it applies just as much to explaining a
+   failure.
 8. **Link issue keys, don't just print them.** Every tool that returns an
    issue (or a subtask, or a linked issue) includes a sibling `url` field
    (e.g. `issue.url`, `subtasks[].url`, `links[].related_url`) -- when you
