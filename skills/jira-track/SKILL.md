@@ -140,12 +140,34 @@ not what they're doing now. It interrupted something.
 - If the ordering or a boundary is genuinely ambiguous, **ask**. One
   short question is much cheaper than a wrong worklog the user has to
   find and fix later.
+- **Once a stretch's end is recorded because something else started or
+  interrupted it, that end is final.** Never recompute that stretch's
+  duration later by taking `now()` (or "the time you're logging at")
+  minus its start -- that silently re-adds every interruption that
+  happened *after* it closed. A stretch's duration is always
+  `its own recorded end minus its own recorded start`, using the exact
+  timestamps already sitting in the tally, not a fresh calculation at
+  logging time.
+
+  Worked example, so the arithmetic is unambiguous: task A starts at
+  09:00; at 10:00 the user reports a 15m interruption; A resumes and the
+  user asks you to log everything at 10:40. A's own stretch is
+  `09:00`-`10:00` = **45m** (not `10:40 - 09:00 = 1h40m`, and not "1h40m
+  minus 15m = 1h25m" either -- both of those are re-deriving from the
+  outer span instead of just reading A's already-closed boundary). If A
+  then resumed after the interruption and is still going at log time,
+  that resumed portion (`10:15`-`10:40` here) is a *second*, separate
+  stretch for the same issue -- sum the two stretches (45m + 25m = 1h10m)
+  for A's total, don't average or re-split the combined span.
 
 ## 6. Logging it at the end of the day
 
 When the user asks to log the day (or says they're done):
 
-1. Group the day's stretches by issue and sum each issue's time.
+1. Group the day's stretches by issue and sum each issue's time --
+   from each stretch's own recorded start/end (see section 5's rule
+   about final boundaries), never by measuring from an issue's first
+   start to whatever time it is now.
 2. Show the whole breakdown first -- per issue: linked key, summary,
    total duration, start time, and the description you propose to log.
    Include any stretch still not tied to an issue as an explicit
