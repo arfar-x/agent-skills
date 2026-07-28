@@ -50,6 +50,21 @@ Sub-task` requires `--parent_key`. Optional: `--description`, `--labels`
 (comma-separated), `--assignee_account_id`, `--priority`, `--components`
 (comma-separated).
 
+## Check for a remembered convention first
+
+Before treating a create request as a single action, check whether the
+user has told you to remember a standing convention for issue creation
+on this project (e.g. "every task also gets a specific kind of subtask"
+or "issues of a certain type always get a certain label"). This tool
+has no opinion of its own about team process -- **never invent or
+assume a convention**, only apply one the user actually asked you to
+remember. If one applies, state the whole resulting set of creates
+(parent, then its convention subtask, etc.) before running anything,
+rather than creating only the literal issue asked and leaving the rest
+unspoken. See `../jira/README.md`'s "Agent memory" section for how
+these conventions differ from the Jira-side facts the rest of this
+toolset caches.
+
 ## Assignee
 
 `--assignee_account_id` needs a Jira `account_id`, not a display name --

@@ -104,6 +104,21 @@ this still be true next week without anyone doing anything?" Statuses,
 board type, and account_ids: yes. Everything above in "What NOT to
 remember": no.
 
+**Workflow conventions -- a different kind of memory.** Everything above
+is a Jira-side fact this toolset *learns* from an API response. A
+convention is different: it's the user's own team process (e.g. "every
+task also gets a specific kind of subtask" or "issues of a certain type
+always get a certain label"), and it only ever enters memory because
+the user explicitly told you to remember it -- never because you
+inferred a "best practice" or copied one team's habit onto another
+project. This toolset stays generic on
+purpose: no skill hardcodes anyone's process, so this is the one place
+that process can live without polluting the tools everyone else shares.
+Once remembered, treat it as standing instruction for future writes on
+that project (`SKILL.md`'s rule 15) -- not a fact to relearn or
+re-verify against Jira, since Jira has no API for "our team's
+convention."
+
 ## Project layout
 
 ```

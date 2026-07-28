@@ -275,6 +275,24 @@ python3 scripts/jira_tool.py <tool> [--flags...]
     state instead), so a missing/ended sprint on the default project
     isn't evidence there's no work to report, it's evidence to check
     `kanban_status` or a plain `my_work`/`search` instead.
+15. **A user's own remembered workflow conventions extend a write --
+    check for one before treating the literal request as done.** A
+    team's process (e.g. "every task also gets a specific kind of
+    subtask" or "issues of a certain type always get a certain label")
+    is never something this toolset invents, assumes, or hardcodes --
+    these skills are generic tools, not one team's process. It only
+    exists if the user has explicitly told you to remember it. But once
+    they have, it's a standing instruction, not a one-off: before you
+    consider a `create_issue`/`edit_issue`/`transition` request
+    complete, check whether a remembered convention applies to it, and
+    if so fold it into the same request -- state the *whole* resulting
+    set of actions (e.g. "create PAY-200, then its usual Sub-task, per
+    your convention -- confirm?") before running anything, rather than
+    silently doing only the literal single action asked, or silently
+    doing more than asked without saying so. If you're ever unsure
+    whether a convention still applies (the user hasn't mentioned it in
+    a while, or this request looks like an exception), ask rather than
+    guess either way.
 
 ## Commands
 

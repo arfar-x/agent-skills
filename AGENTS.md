@@ -81,6 +81,19 @@ These apply repo-wide, to every toolset, not just Jira:
   point: the fact still gets re-fetched (or re-asked) every session until
   someone happens to check.
 
+- **A skill never hardcodes one user's or team's workflow.** Skills are
+  generic tools; process ("every task also gets a specific kind of
+  subtask", "issues of a certain type always get a certain label") is
+  only ever the consuming agent's job to apply -- and only because a
+  user told that agent, in its own memory, to remember it. A `SKILL.md`
+  may instruct the agent to *check* for such a remembered convention
+  before treating a write as complete (see the Jira toolset's rule 15),
+  but must never state what any real convention actually is. This repo
+  is public: don't write a real person's name, a real project's key or
+  label, or a real team's specific process into any `SKILL.md`,
+  `README.md`, test, or example -- when illustrating the pattern, use an
+  obviously generic placeholder instead.
+
 Toolset-specific conventions (e.g. "Jira auth is Basic-only, don't
 reintroduce PAT without being asked") belong in that toolset's own
 `skills/<toolset>/README.md`, not here.
