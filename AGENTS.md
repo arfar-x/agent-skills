@@ -8,6 +8,15 @@ company back-office toolset later), each following the same layout.
 
 ## Repo layout
 
+Not every skill belongs to a toolset. A **standalone skill** (e.g.
+`skills/mood/`) is a single `SKILL.md` file with no sibling toolset
+directory, no `lib/`/`tools/`/`scripts/`/`tests/`, and nothing to
+`pip install` -- pure instructions the agent follows directly. The
+toolset shape below is the common case in this repo, not a requirement
+every skill must satisfy. `skills/mood/` in particular defaults to
+`neutral` -- the agent's normal tone -- unless the user has explicitly
+switched to another mode in the current conversation.
+
 Per toolset `<toolset>` (e.g. `jira`):
 
 - `skills/<toolset>/` -- the actual implementation: `lib/` (REST client,

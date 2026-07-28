@@ -1,16 +1,21 @@
 # Agent skills
 
 A personal collection of AI-agent skills -- a portable developer/work
-toolset, not a single-purpose repo. It currently holds a Jira toolset;
-it's meant to grow with unrelated toolsets (e.g. a company back-office
-toolset) as siblings, each following the same convention.
+toolset, not a single-purpose repo. It currently holds a Jira toolset
+plus one standalone skill (`mood`, a tone/style switch with no toolset
+behind it); it's meant to grow with unrelated toolsets (e.g. a company
+back-office toolset) and further standalone skills alike, each
+following its own pattern's convention (see "Layout and convention" and
+"Standalone skills" below).
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
-frontmatter + a markdown body of instructions), with all actual logic
-living in a plain Python CLI invoked via a shell/terminal tool. That
-shape isn't tied to one agent runtime -- see "Installation" and "Usage"
-below for Hermes Agent, Claude Code, and claude.ai specifically, and
-"Agent Skills format" for the open standard this follows.
+frontmatter + a markdown body of instructions). Most toolset skills put
+their actual logic in a plain Python CLI invoked via a shell/terminal
+tool; standalone skills (see "Standalone skills" below) have no CLI at
+all -- the instructions are the whole skill. That shape isn't tied to
+one agent runtime -- see "Installation" and "Usage" below for Hermes
+Agent, Claude Code, and claude.ai specifically, and "Agent Skills
+format" for the open standard this follows.
 
 ## Agent Skills format
 
@@ -141,6 +146,33 @@ single place to see everything installable at a glance.
 | `jira-create-issue` | [jira](skills/jira) | Write (gated) | Create a new issue or subtask |
 | `jira-edit-issue` | [jira](skills/jira) | Write (gated) | Update fields on an existing issue or subtask |
 | `jira-project-context` | [jira](skills/jira) | Read | Reference snapshot of a project: issue types, statuses, components, priorities, users, labels |
+
+## Standalone skills
+
+Not every skill in this repo backs onto a toolset. A **standalone
+skill** is a single `SKILL.md` file with no sibling directory to shell
+out to -- no `lib/`, `tools/`, `scripts/`, `tests/`, `requirements.txt`,
+or `README.md` of its own. It's pure instructions: markdown the agent
+reads and follows, with no Python, no CLI, and no external API call
+behind it.
+
+```
+skills/
+└── mood/    # Standalone: changes the agent's tone/style for the conversation
+```
+
+The first (and, so far, only) standalone skill is [`mood`](skills/mood)
+-- switches the agent's conversational tone (`neutral`/`angry`/
+`too-angry`/`too-kind`) for the rest of the session. See its `SKILL.md`
+for the full mode reference.
+
+| Skill | Type | Description |
+|---|---|---|
+| `mood` | Instructions-only | Switches the agent's tone/style (`neutral`/`angry`/`too-angry`/`too-kind`) for the rest of the conversation |
+
+Standalone skills need none of "Installation"'s steps 2-3 below (no
+`requirements.txt` to install, no environment variables to set) --
+step 1 (clone the repo) is the only one that applies.
 
 ## Installation
 
