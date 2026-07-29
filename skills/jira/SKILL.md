@@ -29,6 +29,9 @@ required_environment_variables:
   - name: JIRA_DEFAULT_PROJECT
     prompt: "Default Jira project key for triage (e.g. PAY), if you always triage the same project"
     required_for: optional -- only used by triage; if unset, resolve/pass --project yourself
+  - name: JIRA_DEPLOYMENT_TYPE
+    prompt: "Is this Jira Cloud or self-hosted Server/Data Center? (cloud/server)"
+    required_for: optional -- only required the first time create_issue/edit_issue sets an assignee
 ---
 
 # Jira Assistant
@@ -93,6 +96,13 @@ python3 scripts/jira_tool.py <tool> [--flags...]
      from a display name -- resolve it via `search_users` first (see
      rule 9), and ask the user if `search_users` returns more than one
      match.
+   - Setting an assignee also requires `JIRA_DEPLOYMENT_TYPE` (`cloud` or
+     `server`) to be set -- Jira Cloud identifies users by `accountId`,
+     Server/Data Center by username, and the two shapes aren't
+     interchangeable. If the tool's result is a `JiraValidationError`
+     naming `JIRA_DEPLOYMENT_TYPE`, relay that to the user per rule 7
+     rather than retrying -- it's a one-time environment setting, not
+     something you can work around per-call.
    - **If the write the user actually asked for fails, never silently
      substitute a different write as a workaround** (e.g. creating a
      regular issue because a subtask create failed, or logging to a

@@ -472,14 +472,19 @@ def test_create_issue_subtask_requires_parent_key(client):
         client.create_issue("PAYKAN", "Build UI", "Sub-task")
 
 
-def test_create_issue_builds_request_body_and_refetches(client, mock_session):
+def test_create_issue_builds_request_body_and_refetches(jira_config, mock_session):
+    from dataclasses import replace
+
+    from lib.jira_client import JiraClient
+
+    cloud_client = JiraClient(config=replace(jira_config, deployment_type="cloud"), session=mock_session)
     create_response = make_response(status_code=201, json_data={"key": "PAYKAN-500"})
     get_response = make_response(
         json_data={"key": "PAYKAN-500", "fields": {"summary": "Build UI", "status": {"name": "To Do"}}}
     )
     mock_session.request.side_effect = [create_response, get_response]
 
-    issue = client.create_issue(
+    issue = cloud_client.create_issue(
         "PAYKAN",
         "Build UI",
         "Sub-task",
@@ -510,6 +515,32 @@ def test_create_issue_builds_request_body_and_refetches(client, mock_session):
     }
 
 
+def test_create_issue_assignee_uses_name_field_on_server(jira_config, mock_session):
+    from dataclasses import replace
+
+    from lib.jira_client import JiraClient
+
+    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), session=mock_session)
+    create_response = make_response(status_code=201, json_data={"key": "PAYKAN-500"})
+    get_response = make_response(
+        json_data={"key": "PAYKAN-500", "fields": {"summary": "Build UI", "status": {"name": "To Do"}}}
+    )
+    mock_session.request.side_effect = [create_response, get_response]
+
+    server_client.create_issue(
+        "PAYKAN", "Build UI", "Task", assignee_account_id="j.smith"
+    )
+
+    post_call = mock_session.request.call_args_list[0]
+    body = post_call.kwargs["json"]["fields"]
+    assert body["assignee"] == {"name": "j.smith"}
+
+
+def test_create_issue_assignee_without_deployment_type_raises(client):
+    with pytest.raises(JiraValidationError, match="JIRA_DEPLOYMENT_TYPE"):
+        client.create_issue("PAYKAN", "Build UI", "Task", assignee_account_id="abc123")
+
+
 def test_edit_issue_rejects_when_no_fields_given(client):
     with pytest.raises(JiraValidationError):
         client.edit_issue("PAYKAN-1")
@@ -530,6 +561,29 @@ def test_edit_issue_sends_only_provided_fields_and_refetches(client, mock_sessio
     assert method == "PUT"
     assert url.endswith("/issue/PAYKAN-1")
     assert put_call.kwargs["json"] == {"fields": {"summary": "New title"}}
+
+
+def test_edit_issue_assignee_uses_name_field_on_server(jira_config, mock_session):
+    from dataclasses import replace
+
+    from lib.jira_client import JiraClient
+
+    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), session=mock_session)
+    put_response = make_response(status_code=204)
+    get_response = make_response(
+        json_data={"key": "PAYKAN-1", "fields": {"summary": "New title", "status": {"name": "To Do"}}}
+    )
+    mock_session.request.side_effect = [put_response, get_response]
+
+    server_client.edit_issue("PAYKAN-1", assignee_account_id="j.smith")
+
+    put_call = mock_session.request.call_args_list[0]
+    assert put_call.kwargs["json"] == {"fields": {"assignee": {"name": "j.smith"}}}
+
+
+def test_edit_issue_assignee_without_deployment_type_raises(client):
+    with pytest.raises(JiraValidationError, match="JIRA_DEPLOYMENT_TYPE"):
+        client.edit_issue("PAYKAN-1", assignee_account_id="abc123")
 
 
 def test_default_output_fields_omit_description_and_time_tracking():

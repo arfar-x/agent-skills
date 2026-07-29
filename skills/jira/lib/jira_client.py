@@ -474,6 +474,29 @@ class JiraClient:
         resolved = (project or self.config.default_project or "").strip()
         return resolved or None
 
+    def _assignee_field(self, identifier: str) -> Dict[str, Any]:
+        """Build the assignee field in the shape this Jira deployment expects.
+
+        Jira Cloud identifies users by ``accountId``; Jira Server/Data
+        Center has no such concept and expects the username under
+        ``name`` instead -- the two shapes aren't interchangeable, and
+        sending the wrong one gets the write rejected with a confusing
+        error. Requires ``JIRA_DEPLOYMENT_TYPE`` to be set rather than
+        assuming either.
+        """
+        deployment_type = self.config.deployment_type
+        if not deployment_type:
+            raise JiraValidationError(
+                "Setting an assignee requires JIRA_DEPLOYMENT_TYPE to be set "
+                "to 'cloud' or 'server' first -- Jira Cloud identifies users "
+                "by accountId, Jira Server/Data Center by username, and "
+                "sending the wrong shape gets rejected. Set the environment "
+                "variable once for this Jira instance and retry."
+            )
+        if deployment_type == "cloud":
+            return {"accountId": identifier}
+        return {"name": identifier}
+
     def _build_issue_links(self, raw_links: List[Dict[str, Any]]) -> List[IssueLink]:
         links: List[IssueLink] = []
         for raw_link in raw_links or []:
@@ -1199,9 +1222,11 @@ class JiraClient:
             description: Plain-text description.
             parent_key: Required when ``issue_type`` is ``"Sub-task"``.
             labels: Labels to apply, e.g. ``["Frontend"]``.
-            assignee_account_id: A user's ``account_id`` (resolve a name to
+            assignee_account_id: A user's identifier (resolve a name to
                 this via ``search_users`` first -- never guessed from a
-                display name).
+                display name). Requires ``JIRA_DEPLOYMENT_TYPE`` to be
+                set (``cloud``/``server``) so it's wrapped in the right
+                field shape -- see ``_assignee_field``.
             priority: Priority name, e.g. ``"High"``.
             components: Component names.
 
@@ -1233,7 +1258,7 @@ class JiraClient:
         if labels:
             fields["labels"] = list(labels)
         if assignee_account_id:
-            fields["assignee"] = {"accountId": assignee_account_id}
+            fields["assignee"] = self._assignee_field(assignee_account_id)
         if priority:
             fields["priority"] = {"name": priority}
         if components:
@@ -1257,8 +1282,11 @@ class JiraClient:
 
         Args:
             issue_key: Target issue, e.g. ``PAY-123``.
-            assignee_account_id: A user's ``account_id`` (resolve via
-                ``search_users`` first -- never guessed).
+            assignee_account_id: A user's identifier (resolve via
+                ``search_users`` first -- never guessed). Requires
+                ``JIRA_DEPLOYMENT_TYPE`` to be set (``cloud``/``server``)
+                so it's wrapped in the right field shape -- see
+                ``_assignee_field``.
 
         Raises:
             JiraValidationError: If no field is given to update.
@@ -1272,7 +1300,7 @@ class JiraClient:
         if labels is not None:
             fields["labels"] = list(labels)
         if assignee_account_id is not None:
-            fields["assignee"] = {"accountId": assignee_account_id}
+            fields["assignee"] = self._assignee_field(assignee_account_id)
         if priority is not None:
             fields["priority"] = {"name": priority}
         if components is not None:

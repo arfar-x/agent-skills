@@ -38,6 +38,13 @@ class JiraConfig:
             by tools that need a project scope (e.g. ``triage``) when the
             caller doesn't pass one explicitly. If unset, callers must
             resolve/pass a project themselves -- never guessed in code.
+        deployment_type: ``"cloud"`` or ``"server"`` (the latter also
+            covers Data Center). Jira Cloud identifies users by
+            ``accountId``; Server/Data Center has no such concept and
+            uses the username under ``name`` instead -- the two shapes
+            aren't interchangeable. Only needed for setting an assignee
+            (``create_issue``/``edit_issue``); if unset, that fails
+            clearly rather than guessing one shape.
     """
 
     base_url: str
@@ -48,6 +55,7 @@ class JiraConfig:
     verify_ssl: bool = True
     auto_confirm_writes: bool = False
     default_project: Optional[str] = None
+    deployment_type: Optional[str] = None
 
     def auth_summary(self) -> str:
         """Return a redacted, human-readable description of the auth mode."""
@@ -108,6 +116,8 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
         JIRA_VERIFY_SSL (optional, default true).
         JIRA_AUTO_CONFIRM_WRITES (optional, default false).
         JIRA_DEFAULT_PROJECT (optional, default unset).
+        JIRA_DEPLOYMENT_TYPE (optional, default unset): "cloud" or
+            "server" -- only required for setting an assignee.
     """
     source: Mapping[str, str] = env if env is not None else os.environ
 
@@ -135,6 +145,16 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
             f"The following environment variables are missing: {', '.join(missing)}"
         )
 
+    deployment_type_raw = _env(source, "JIRA_DEPLOYMENT_TYPE")
+    deployment_type = None
+    if deployment_type_raw:
+        deployment_type = deployment_type_raw.strip().lower()
+        if deployment_type not in {"cloud", "server"}:
+            raise ConfigurationError(
+                f"JIRA_DEPLOYMENT_TYPE={deployment_type_raw!r} must be 'cloud' "
+                "or 'server' ('server' also covers Data Center)."
+            )
+
     config = JiraConfig(
         base_url=base_url,
         username=username,
@@ -144,6 +164,7 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
         verify_ssl=_env_bool(source, "JIRA_VERIFY_SSL", True),
         auto_confirm_writes=_env_bool(source, "JIRA_AUTO_CONFIRM_WRITES", False),
         default_project=_env(source, "JIRA_DEFAULT_PROJECT"),
+        deployment_type=deployment_type,
     )
     logger.info(
         "Loaded Jira configuration: base_url=%s auth=%s auto_confirm_writes=%s",

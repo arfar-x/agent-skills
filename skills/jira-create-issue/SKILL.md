@@ -24,6 +24,9 @@ required_environment_variables:
   - name: JIRA_AUTO_CONFIRM_WRITES
     prompt: "Skip the confirm step before creating tickets? (true/false)"
     required_for: optional, defaults to false (asks before every write)
+  - name: JIRA_DEPLOYMENT_TYPE
+    prompt: "Is this Jira Cloud or self-hosted Server/Data Center? (cloud/server)"
+    required_for: optional -- only required if you pass --assignee_account_id
 ---
 
 # Jira: Create Issue
@@ -70,6 +73,13 @@ toolset caches.
 `--assignee_account_id` needs a Jira `account_id`, not a display name --
 resolve one via `jira-search-users` first (e.g. `search_users --query john`)
 rather than guessing.
+
+Also requires `JIRA_DEPLOYMENT_TYPE` (`cloud` or `server`) to be set:
+Jira Cloud identifies users by `accountId`, Server/Data Center by
+username, and the tool won't guess which one this instance is. If the
+result is an `"error"` naming `JIRA_DEPLOYMENT_TYPE`, tell the user to
+set that environment variable once -- it isn't something to retry
+around.
 
 ## Confirmation
 

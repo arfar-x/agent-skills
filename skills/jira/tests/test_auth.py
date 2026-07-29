@@ -57,3 +57,39 @@ def test_auto_confirm_writes_can_be_enabled():
         }
     )
     assert config.auto_confirm_writes is True
+
+
+def test_deployment_type_defaults_unset():
+    config = load_config(
+        env={
+            "JIRA_BASE_URL": "https://jira.example.com",
+            "JIRA_USERNAME": "alice",
+            "JIRA_PASSWORD": "secret",
+        }
+    )
+    assert config.deployment_type is None
+
+
+@pytest.mark.parametrize("raw,expected", [("cloud", "cloud"), ("Server", "server"), (" CLOUD ", "cloud")])
+def test_deployment_type_accepted_case_insensitively(raw, expected):
+    config = load_config(
+        env={
+            "JIRA_BASE_URL": "https://jira.example.com",
+            "JIRA_USERNAME": "alice",
+            "JIRA_PASSWORD": "secret",
+            "JIRA_DEPLOYMENT_TYPE": raw,
+        }
+    )
+    assert config.deployment_type == expected
+
+
+def test_deployment_type_rejects_unknown_value():
+    with pytest.raises(ConfigurationError, match="JIRA_DEPLOYMENT_TYPE"):
+        load_config(
+            env={
+                "JIRA_BASE_URL": "https://jira.example.com",
+                "JIRA_USERNAME": "alice",
+                "JIRA_PASSWORD": "secret",
+                "JIRA_DEPLOYMENT_TYPE": "datacenter",
+            }
+        )

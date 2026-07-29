@@ -174,6 +174,7 @@ ever hard-coded.**
 | `JIRA_AUTO_CONFIRM_WRITES` | No | `false` | Skip the confirmation gate for `worklog`/`transition`/`create_issue`/`edit_issue` |
 | `JIRA_CACHE_TTL_SECONDS` | No | `0` | Optional TTL cache for idempotent GET requests; `0` disables caching |
 | `JIRA_DEFAULT_PROJECT` | No | -- | Project key (e.g. `PAYKAN`) used by `triage` when `--project` isn't given; if unset, the model must resolve/pass a project itself |
+| `JIRA_DEPLOYMENT_TYPE` | No\* | -- | `cloud` or `server` (the latter also covers Data Center). \*Required the first time `create_issue`/`edit_issue` sets an assignee -- Jira Cloud identifies users by `accountId`, Server/Data Center by username, and the two shapes aren't interchangeable |
 
 Configuration is validated eagerly: `lib.auth.load_config()` raises a
 `ConfigurationError` with a specific, actionable message if required
@@ -204,8 +205,8 @@ Jira Server/Data Center.
 | `list_fields()` | Read | Enumerate every field (incl. custom fields) to discover a custom field's id by name |
 | `now()` | Read (local) | Current local wall-clock time, tz-aware, in the ISO format `worklog --date` accepts. The only tool that makes no Jira call -- it exists so relative dates ("now", "last Tuesday") get resolved against a checked clock instead of an assumed one |
 | `triage(project, parent_issue_types, max_results)` | Read | Group unresolved parent issues (Story/Bug/Task) with their labeled subtasks, for frontend/backend/design-readiness triage |
-| `create_issue(project, summary, issue_type, description, parent_key, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Create a new issue or subtask (pass `issue_type="Sub-task"` + `parent_key` for the latter) |
-| `edit_issue(issue_key, summary, description, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Update one or more fields on an existing issue or subtask |
+| `create_issue(project, summary, issue_type, description, parent_key, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Create a new issue or subtask (pass `issue_type="Sub-task"` + `parent_key` for the latter). Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE` |
+| `edit_issue(issue_key, summary, description, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Update one or more fields on an existing issue or subtask. Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE` |
 | `project_context(project)` | Read | Reference snapshot of a project: identity, `issue_types`, `statuses`/`statuses_by_issue_type`, `components`, instance `priorities`, assignable `users`, and a sample of `labels` in use -- meant to be fetched once and remembered by the caller rather than re-fetched every turn |
 
 Each tool is reachable both as a Python function (`tools/<name>.py`) and
