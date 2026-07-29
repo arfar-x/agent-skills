@@ -162,13 +162,13 @@ skills/
 ```
 
 The first (and, so far, only) standalone skill is [`mood`](skills/mood)
--- switches the agent's conversational tone (`neutral`/`angry`/
-`too-angry`/`too-kind`) for the rest of the session. See its `SKILL.md`
-for the full mode reference.
+-- switches the agent's conversational tone (`neutral`/`alpha`/`angry`/
+`sarcastic`/`flatterer`/`too-kind`) for the rest of the session. See its
+`SKILL.md` for the full mode reference.
 
 | Skill | Type | Description |
 |---|---|---|
-| `mood` | Instructions-only | Switches the agent's tone/style (`neutral`/`angry`/`too-angry`/`too-kind`) for the rest of the conversation |
+| `mood` | Instructions-only | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
 
 Standalone skills need none of "Installation"'s steps 2-3 below (no
 `requirements.txt` to install, no environment variables to set) --
