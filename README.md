@@ -2,11 +2,12 @@
 
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds a Jira toolset
-plus one standalone skill (`mood`, a tone/style switch with no toolset
-behind it); it's meant to grow with unrelated toolsets (e.g. a company
-back-office toolset) and further standalone skills alike, each
-following its own pattern's convention (see "Layout and convention" and
-"Standalone skills" below).
+plus two standalone skills (`mood`, a tone/style switch, and `prd`, a
+PRD-drafting skill -- neither has a toolset behind it); it's meant to
+grow with unrelated toolsets (e.g. a company back-office toolset) and
+further standalone skills alike, each following its own pattern's
+convention (see "Layout and convention" and "Standalone skills"
+below).
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions). Most toolset skills put
@@ -158,17 +159,25 @@ behind it.
 
 ```
 skills/
-└── mood/    # Standalone: changes the agent's tone/style for the conversation
+├── mood/    # Standalone: changes the agent's tone/style for the conversation
+└── prd/     # Standalone: drafts a PRD from a feature brief
 ```
 
-The first (and, so far, only) standalone skill is [`mood`](skills/mood)
--- switches the agent's conversational tone (`neutral`/`alpha`/`angry`/
-`sarcastic`/`flatterer`/`too-kind`) for the rest of the session. See its
-`SKILL.md` for the full mode reference.
+Two standalone skills so far:
+
+- [`mood`](skills/mood) -- switches the agent's conversational tone
+  (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the
+  rest of the session. See its `SKILL.md` for the full mode reference.
+- [`prd`](skills/prd) -- turns a feature brief into a full Product
+  Requirement Document and saves it under `docs/PRDs/` (or wherever this
+  workspace already keeps them); never implements the request, only
+  documents it. Also maintains `CURRENT_STATE.md`, a minimal navigation
+  map of which PRDs are implemented, in progress, or deferred.
 
 | Skill | Type | Description |
 |---|---|---|
 | `mood` | Instructions-only | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
+| `prd` | Instructions-only | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, the repo's PRD-implementation-status navigation map |
 
 Standalone skills need none of "Installation"'s steps 2-3 below (no
 `requirements.txt` to install, no environment variables to set) --
