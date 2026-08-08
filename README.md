@@ -1,13 +1,14 @@
 # Agent skills
 
 A personal collection of AI-agent skills -- a portable developer/work
-toolset, not a single-purpose repo. It currently holds a Jira toolset
-plus two standalone skills (`mood`, a tone/style switch, and `prd`, a
-PRD-drafting skill -- neither has a toolset behind it); it's meant to
-grow with unrelated toolsets (e.g. a company back-office toolset) and
-further standalone skills alike, each following its own pattern's
-convention (see "Layout and convention" and "Standalone skills"
-below).
+toolset, not a single-purpose repo. It currently holds a Jira toolset,
+two standalone skills (`mood`, a tone/style switch, and `prd`, a
+PRD-drafting skill -- neither has a toolset behind it), and one internal
+toolset (`skills/telegram`, excluded from default installs -- see
+"Internal skills" below); it's meant to grow with unrelated toolsets
+(e.g. a company back-office toolset) and further standalone skills
+alike, each following its own pattern's convention (see "Layout and
+convention", "Standalone skills", and "Internal skills" below).
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions). Most toolset skills put
@@ -90,6 +91,14 @@ A future toolset (say, `backoffice`) would land the same way:
 `skills/backoffice/` for the shared client + CLI + tests, and
 `skills/backoffice-<action>/` for each thin per-action skill -- see
 "Adding a toolset" below.
+
+Thin per-action wrapper skills are the norm for a toolset meant to be
+installed piecemeal, not a requirement every toolset must satisfy --
+`skills/telegram/` (see "Internal skills" below) is a toolset with none,
+deliberately: it's `metadata.internal: true`, so it isn't being exposed
+as a discoverable per-action command catalog in the first place, and
+multiplying a high-risk skill's installable surface across ten separate
+entry points would be its own risk to avoid.
 
 Each thin `<toolset>-<action>` skill has its own `SKILL.md` so it gets
 its own slash command (`/jira-my-work`, `/jira-issues`, ...) -- Hermes
@@ -182,6 +191,33 @@ Two standalone skills so far:
 Standalone skills need none of "Installation"'s steps 2-3 below (no
 `requirements.txt` to install, no environment variables to set) --
 step 1 (clone the repo) is the only one that applies.
+
+## Internal skills
+
+A skill (standalone or toolset) can be marked **internal** --
+`metadata.internal: true` in its `SKILL.md` frontmatter -- to keep it out
+of normal installs and listings. The convention this repo's frontmatter
+follows (per "Agent Skills format" above: an extension an installer can
+key off of, ignored by one that doesn't recognize it) is that an internal
+skill is only visible and installable when the installer is explicitly
+run with `INSTALL_INTERNAL_SKILLS=1`; without it, the skill is skipped as
+if it didn't exist. This repo doesn't ship an installer of its own -- the
+guarantee is only as real as whatever tool a given user installs skills
+with (`npx skills`, a Hermes deployment, a manual `cp`/symlink) actually
+honoring it; a manual copy of the skill directory bypasses this entirely,
+the same way it bypasses `required_environment_variables`. This repo's
+file tree is public either way -- "internal" changes what installs by
+default, not what's visible on GitHub.
+
+This exists for a skill whose risk profile shouldn't be part of a
+default install: [`skills/telegram`](skills/telegram) is the first
+example -- a Telethon-based skill granting an agent access to a personal
+Telegram account. It's deliberately excluded from the "Tools" table and
+layout tree above (both catalog what installs by default), and it isn't
+a general-purpose way to de-list a skill that just isn't ready yet --
+it's specifically for "this needs the installing human to have actively
+opted in, having read what it grants." See `skills/telegram/README.md`
+for its disclaimer and security model before setting it up.
 
 ## Installation
 

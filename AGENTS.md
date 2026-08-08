@@ -17,6 +17,23 @@ every skill must satisfy. `skills/mood/` in particular defaults to
 `neutral` -- the agent's normal tone -- unless the user has explicitly
 switched to another mode in the current conversation.
 
+A toolset (or standalone skill) can also be marked **internal** --
+`metadata.internal: true` in its `SKILL.md` frontmatter -- to keep it out
+of normal installs and listings; it only appears when the installer is
+run with `INSTALL_INTERNAL_SKILLS=1`. This is for a skill whose risk
+profile doesn't belong in a default install (e.g. `skills/telegram/`,
+which grants standing access to a personal account) -- it is not a
+general-purpose "hide this skill" switch, and it doesn't relax any of the
+conventions below.
+
+A toolset also isn't required to ship thin per-action `skills/<toolset>-*/`
+wrapper skills (below) -- `skills/telegram/` is the first example of a
+toolset with none, deliberately, since multiplying a high-risk skill's
+installable surface across ten separate entry points is itself a risk to
+avoid, and an internal skill isn't being exposed as a discoverable command
+catalog anyway. The wrapper pattern is the norm for a toolset meant to be
+installed piecemeal, not a requirement every toolset must satisfy.
+
 Per toolset `<toolset>` (e.g. `jira`):
 
 - `skills/<toolset>/` -- the actual implementation: `lib/` (REST client,
@@ -61,7 +78,23 @@ These apply repo-wide, to every toolset, not just Jira:
   execute without `--confirm` unless `JIRA_AUTO_CONFIRM_WRITES=true`.
   Any new toolset with side-effecting actions must gate them the same
   way, with an equivalent explicit `--confirm`/`*_AUTO_CONFIRM_WRITES`
-  escape hatch, not just instructions in the skill's markdown body.
+  escape hatch, not just instructions in the skill's markdown body. A
+  toolset may go *stricter* than this baseline when an action's
+  consequence is high enough that an agent-satisfiable flag isn't a real
+  guarantee -- `skills/telegram/`'s `send_message`/`send_bulk`/
+  `forward_message` have no auto-confirm escape hatch at all, and in
+  their default confirm mode require a `yes` typed at a real terminal
+  the calling agent cannot supply. Going stricter than the baseline is
+  fine; going looser (a write with no code-level gate at all) is not.
+- **A `--confirm`-style flag is not, by itself, a guarantee against an
+  agent that ignores its own instructions** -- the flag is something the
+  calling agent passes, so it can satisfy it on the very first call.
+  Where that distinction matters (an action whose consequence a human
+  should verify, not just an agent), gate it behind something the agent
+  genuinely cannot supply on its own -- e.g. reading a confirmation from
+  a real controlling terminal rather than accepting it as a function
+  argument. See `skills/telegram/lib/guard.py`'s `gate()` for the
+  pattern.
 - Each skill's `required_environment_variables` frontmatter must list
   every env var that its code path actually reads -- Hermes uses that
   list to decide which vars are allowed to pass through to the sandboxed
@@ -89,6 +122,21 @@ These apply repo-wide, to every toolset, not just Jira:
   user asking "will you remember that?". Waiting to be asked defeats the
   point: the fact still gets re-fetched (or re-asked) every session until
   someone happens to check.
+
+  This convention has a deliberate opt-out: a toolset that handles
+  private third-party data -- someone else's messages, not just the
+  user's own project state -- may forbid persistence entirely instead of
+  cataloging what's safe to remember. `skills/telegram/README.md`'s "No
+  agent memory" section is the example; its `SKILL.md` states the
+  inverse rule (persist nothing this skill returns, ever) and explains
+  why saving *less* is the right default when what's being fetched is
+  someone else's private content, not the user's own stable project
+  facts. Note this is a case where the guarantee can't be enforced in
+  code the way the rest of this document asks for -- a runtime's memory
+  feature lives outside the skill's own CLI, so this specific rule rests
+  on the consuming agent actually following the instruction, which
+  `skills/telegram/README.md` says explicitly rather than overstating
+  the guarantee.
 
 - **A skill never hardcodes one user's or team's workflow.** Skills are
   generic tools; process ("every task also gets a specific kind of
