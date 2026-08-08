@@ -3,11 +3,12 @@
 A production-ready agent skill that lets an LLM act as a high-level Jira
 assistant -- answering questions like "what should I work on next?" or
 "what's blocking PAY-123?" -- without ever exposing raw Jira REST APIs to
-the model. Runtime-specific details (Hermes, Claude Code, claude.ai) are
-confined to `SKILL.md`'s `metadata.hermes` block and the "Installing
-into Hermes" section below -- the skill body and CLI itself don't
-assume any particular agent runtime. See "Agent memory" below for what a
-consuming agent should remember across turns and sessions.
+the model. Runtime-specific details are confined to `SKILL.md`'s
+frontmatter -- the skill body and CLI itself don't assume any particular
+agent runtime; see the top-level `README.md`'s "Installation" section for
+how to set this skill up in whichever runtime you're using. See "Agent
+memory" below for what a consuming agent should remember across turns
+and sessions.
 
 ## Design
 
@@ -44,10 +45,10 @@ consuming agent should remember across turns and sessions.
   `project_context()` returns a project's statuses/labels/users/etc. as a
   plain read, with no disk cache or TTL logic of its own -- reuse across
   turns is delegated entirely to whatever persistent-memory feature the
-  calling agent runtime already has (Claude Code's memory files, Hermes'
-  memory subsystem, ...), per `SKILL.md`'s rule 12, rather than this skill
-  reimplementing a caching layer that would only duplicate what the
-  runtime already does. Both its user list and its label scan walk
+  calling agent runtime already has, per `SKILL.md`'s rule 12, rather than
+  this skill reimplementing a caching layer that would only duplicate
+  what the runtime already does. Both its user list and its label scan
+  walk
   bounded pages via `_paginate()`/`search()` rather than requesting one
   large page of everything.
 
@@ -72,10 +73,9 @@ separate, optional step.
 This applies with no toolset-runtime coupling: it's written into each
 skill's `SKILL.md` body (see "Frontmatter compatibility" in the
 top-level `README.md`), so whatever memory mechanism the current runtime
-provides -- Claude Code's memory files, Hermes' memory subsystem, or
-none at all -- gets used the same way. If a runtime has no persistent
-memory, none of this applies past the current conversation; that's fine,
-these are instructions, not a guarantee.
+provides -- or none at all -- gets used the same way. If a runtime has
+no persistent memory, none of this applies past the current
+conversation; that's fine, these are instructions, not a guarantee.
 
 **What to remember, and where each fact comes from:**
 
@@ -153,8 +153,9 @@ skills/jira/
 │   ├── auth.py              # Env-based configuration + validation
 │   ├── models.py            # Typed, JSON-serializable data models
 │   └── utils.py             # Duration parsing, ADF text extraction, blocking rules
-├── skill.yaml                # Generic tool-schema manifest, kept for non-Hermes
-│                              # integrations that consume function-calling schemas
+├── skill.yaml                # Generic tool-schema manifest, kept for
+│                              # integrations that consume function-calling
+│                              # schemas directly instead of a markdown CLI
 └── tests/                    # Unit tests for the client and every tool
 ```
 
@@ -179,7 +180,7 @@ ever hard-coded.**
 Configuration is validated eagerly: `lib.auth.load_config()` raises a
 `ConfigurationError` with a specific, actionable message if required
 variables are missing (e.g. `JIRA_PASSWORD` not set). Wire this into
-your Hermes installation's startup/health check so misconfiguration
+whatever startup/health check your runtime supports so misconfiguration
 fails fast instead of at first tool call.
 
 This skill only supports HTTP Basic auth (`JIRA_USERNAME` +
@@ -213,6 +214,44 @@ Each tool is reachable both as a Python function (`tools/<name>.py`) and
 as a CLI subcommand (`scripts/jira_tool.py <name>`). See `skill.yaml` for
 exact JSON Schemas and `SKILL.md` for the CLI invocation the agent uses.
 
+## Thin skills
+
+`jira` (this skill) works standalone as a single do-everything skill, but
+the repo also ships one thin, `SKILL.md`-only `skills/jira-<action>/`
+wrapper per action below -- each shells out to this skill's own
+`scripts/jira_tool.py`, purely so the action is installable and
+invocable on its own (see the top-level `README.md`'s "Layout and
+convention" for why). They contain no Python of their own and nothing to
+test; the description for each is the matching row in "Tools" above, not
+repeated here. **Parent skill for every row below: `jira`.**
+
+| Skill | Wraps | Type |
+|---|---|---|
+| `jira-my-work` | `my_work` | Read |
+| `jira-issues` | `search` | Read |
+| `jira-issue-summary` | `issue_summary` | Read |
+| `jira-blockers` | `blockers` | Read |
+| `jira-sprint` | `sprint` | Read |
+| `jira-kanban-status` | `kanban_status` | Read |
+| `jira-board` | orchestrator: `sprint` or `kanban_status`, auto-detected | Read |
+| `jira-worklog` | `worklog` | Write (gated) |
+| `jira-worklog-edit` | `worklog_edit` | Write (gated) |
+| `jira-worklog-delete` | `worklog_delete` | Write (gated) |
+| `jira-log` | orchestrator: `worklog`/`worklog_edit`/`worklog_delete`, routed by intent | Write (gated) |
+| `jira-track` | narrated-day tracking -> `worklog` (see "Design" above) | Write (gated) |
+| `jira-status` | `transition` | Write (gated) |
+| `jira-worklog-report` | `worklog_report` | Read |
+| `jira-triage` | `triage` | Read |
+| `jira-search-users` | `search_users` | Read |
+| `jira-create-issue` | `create_issue` | Write (gated) |
+| `jira-edit-issue` | `edit_issue` | Write (gated) |
+| `jira-project-context` | `project_context` | Read |
+
+Install one thin skill by name (`npx skills add arfar-x/agent-skills
+--skill jira-my-work`) if you only want that one slash command, or
+install `jira` alone for the do-everything form -- see the top-level
+`README.md`'s "Installation" for the general install flow.
+
 ## Running tests
 
 ```bash
@@ -227,54 +266,5 @@ parsing, blocking-rule logic, pagination, error-code mapping (401/403/
 404/429/5xx), transition resolution, and every tool's success/validation/
 confirmation-gate paths.
 
-## Installing into Hermes
-
-This is a manual, one-time setup step that a human operator performs in
-their own local Hermes installation. Nothing in this repository -- no
-script, no `SKILL.md` instruction, no tool -- edits Hermes configuration
-on its own; the steps below are for you to carry out by hand.
-
-Hermes discovers skills as `SKILL.md`-fronted directories, either under
-`~/.hermes/skills/<skill-name>/` or under a directory of your own
-choosing that you list in your local Hermes settings (see Hermes' own
-docs for the exact setting name). Doing the latter and pointing it at
-the `skills/` directory that contains `jira/` means you don't
-need to copy this repo anywhere -- it's available immediately, with live
-edits.
-
-1. In your own Hermes settings file, list the absolute path to this
-   repo's `skills/` directory under the setting that holds
-   operator-defined skill locations, for example:
-
-   ```yaml
-   skills:
-     external_dirs:
-       - /path/to/your/local/checkout/of/skills/skills
-   ```
-
-2. Install dependencies (into whatever Python environment Hermes' sandbox
-   uses to run `terminal`/`execute_code`):
-
-   ```bash
-   pip install -r /path/to/your/local/checkout/of/skills/skills/jira/requirements.txt
-   ```
-
-3. Set the environment variables from the table above wherever Hermes'
-   sandbox inherits its environment (`SKILL.md`'s
-   `required_environment_variables` will also prompt for them on first
-   use if Hermes' onboarding flow supports it).
-
-4. In a Hermes chat, run `/skills` to confirm `jira` is listed,
-   or invoke it directly with `/jira`.
-
-Alternatively, if your Hermes deployment can't use `external_dirs` (e.g.
-a remote/managed instance), install by copying:
-`cp -r skills/jira ~/.hermes/skills/jira`. Note this
-creates a disconnected copy -- future changes to this repo won't apply
-until you re-copy.
-
-Hermes' skill mechanism (`SKILL.md` + on-demand instructions run via its
-own `terminal` tool) is different from the generic function-calling
-`skill.yaml` manifest also included here -- that file is kept for any
-other agent runtime you might integrate with that expects structured
-tool schemas instead of a markdown-instructed CLI.
+See the top-level `README.md`'s "Installation" section for how to get
+this skill discoverable by whichever runtime you're using.

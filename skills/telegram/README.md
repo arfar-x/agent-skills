@@ -263,24 +263,25 @@ missing or malformed.
 
 ## Installation
 
-This skill only really works in a runtime where a human can reach a real
-local terminal and a local filesystem persists across calls -- see
-"Which runtimes this works in" below before setting it up somewhere else.
+This skill only works where a human can reach a real, local controlling
+terminal and a local filesystem persists across calls -- a stateless
+hosted sandbox with no local persistence and no real TTY cannot support
+it, regardless of what runtime it's part of; `scripts/login.py` and every
+`tty`-mode confirmation depend on both. See the top-level `README.md`'s
+"Installation" section for how this repo's supported runtimes are set up
+in general; the steps below cover only what's specific to this skill.
 
 1. **Clone this repo** (skipped if already done for another skill here):
 
    ```bash
-   git clone git@github.com:arfar-x/skills.git
+   git clone git@github.com:arfar-x/agent-skills.git
    ```
 
    Being `metadata.internal: true` (see the top-level `README.md`'s
    "Internal skills" section) only affects installers that check that
-   flag -- `npx skills` and a Hermes deployment that respects it will skip
-   this skill unless run with `INSTALL_INTERNAL_SKILLS=1`. A manual
-   symlink/copy (the Claude Code step below) bypasses that check
-   entirely, same as it bypasses `required_environment_variables` -- the
-   flag is a convention for installers to honor, not a guarantee this
-   repo enforces on its own.
+   flag -- see that section for exactly what "internal" does and doesn't
+   guarantee, and how to install this skill anyway once you've read the
+   DISCLAIMER above.
 
 2. **Install Telethon** into whatever environment actually executes
    `python3` for this skill's CLI:
@@ -294,8 +295,8 @@ local terminal and a local filesystem persists across calls -- see
    `TELEGRAM_ALLOWED_CHATS`. Set `TELEGRAM_ALLOWED_CHATS` *before* the
    next step -- `scripts/login.py` resolves it at login time, and a chat
    added later needs login re-run to pick it up. Where these variables
-   need to live differs by runtime, same as every other toolset here --
-   see the per-runtime notes below.
+   need to live is a property of your runtime, not this skill -- see the
+   top-level `README.md`.
 
 4. **Run `scripts/login.py` yourself**, directly, in a real local
    terminal -- never through an agent's shell/terminal tool, and never
@@ -308,38 +309,6 @@ local terminal and a local filesystem persists across calls -- see
    cd skills/telegram
    python3 scripts/login.py
    ```
-
-### Which runtimes this works in
-
-- **Claude Code**: the intended runtime. Symlink or copy the skill
-  directory into `.claude/skills/telegram/` (project-scoped) or
-  `~/.claude/skills/telegram/` (personal):
-
-  ```bash
-  ln -s /path/to/your/local/checkout/of/skills/skills/telegram ~/.claude/skills/telegram
-  ```
-
-  Its shell tool inherits your real shell environment (export the
-  variables from step 3 normally, e.g. in `.zshrc`), and you have a real
-  terminal alongside it to run `login.py` in and to answer `tty`-mode
-  confirmation prompts in -- see "Usage" below for exactly how that
-  split works day to day.
-- **Hermes**: point `skills.external_dirs` at this repo's `skills/`
-  directory as usual (see the top-level `README.md`'s "Hermes Agent"
-  section), and set the env vars from step 3 wherever Hermes' sandbox
-  inherits its environment. The same TTY requirement applies: run
-  `login.py` at your own machine's terminal, outside of whatever sandbox
-  Hermes runs the `terminal` tool in -- if that sandbox has no real
-  `/dev/tty` (most don't), `TELEGRAM_CONFIRM_MODE=tty` will also
-  hard-refuse every outbound send when the agent tries it, which is the
-  intended fallback (see "Usage"), not a misconfiguration to work around.
-- **claude.ai (web/app)**: **not supported, and not recommended.** Its
-  hosted sandbox is stateless across turns (no local file persists the
-  way `session.json` needs to), has no real controlling terminal for
-  `login.py` or a `tty`-mode prompt, and can't reach your own shell
-  environment for the credentials in step 3 regardless. There's no
-  configuration that makes this skill work safely there -- use Claude
-  Code or a local Hermes deployment instead.
 
 ## Usage
 
@@ -355,9 +324,9 @@ that's the design working as intended, not a bug to route around.
 
 Once logged in (step 4 above) and the skill is discoverable, just ask in
 plain language -- e.g. "any new messages from Alice?" or "reply to the
-team chat: running 10 minutes late." There's no slash command to
-remember in Claude Code; in Hermes, use `/telegram <request>` the same
-way as any other skill.
+team chat: running 10 minutes late." How that request actually reaches
+this skill (plain language vs. a slash command) differs by runtime --
+see the top-level `README.md`'s "Usage" section.
 
 **Reads** go through the ordinary two-step even in the default `tty`
 mode: the agent states what it's about to do (`pending_action.summary`),
