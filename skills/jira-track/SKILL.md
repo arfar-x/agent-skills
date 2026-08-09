@@ -74,25 +74,51 @@ if earlier turns get summarized away. Two rules follow from that:
 - A stretch with no issue assigned yet still belongs in the tally, shown
   with the user's own words as its label.
 
-## 2. Starting or switching work
+## 2. Starting, switching, or finishing work
 
-Run `now` **first**, before anything else -- you do not otherwise know
-the current time, and every later calculation depends on this one being
-real:
+Run `now` **immediately**, before anything else -- for every one of
+these moments, not only the first one of the day: the user starts
+something, switches to something else, resumes something after an
+interruption, says they're done, or pauses. This applies even when
+nothing new is starting right after -- "done" on its own, with no next
+task named, still closes the current stretch and still needs a real
+timestamp. A resume is its own moment too, not folded into whatever
+interrupted it -- it's what opens the second, separate stretch section 5
+describes. You do not otherwise know the current time, and every later
+calculation depends on this one being real:
 
 ```bash
 python3 ../jira/scripts/jira_tool.py now
 ```
 
-Record that timestamp against whatever the user called the work. Don't
-stall the clock while you look up the Jira issue -- capture the start
-time now, resolve the issue afterwards (or at the end of the day). If
-something was already in progress, this new start closes it.
+**Don't wait for the user to state a clock time, and don't ask for
+one.** Capture `now` yourself the instant the moment happens. If the
+user does offer their own time, it wins over yours (same principle as
+rule 5's "a stated duration wins over inferred" -- it applies to an
+explicit timestamp too) -- but that's a correction layered on top of
+your own `now` call, never a substitute for making it. Waiting for them
+to supply a time, then computing from that, skips the instruction that
+makes this reliable on the turns they *don't* give you one -- even when
+the resulting math turns out correct, the process was wrong.
+
+Record that timestamp against whatever the user called the work, and
+against whatever it just closed if something was already in progress.
+Don't stall the clock while you look up the Jira issue -- capture the
+timestamp now, resolve the issue afterwards (or at the end of the day).
 
 ## 3. Resolving what they meant to a real issue
 
-The user says "the media thing" or "those logs", not `PAY-96` -- and may
-say it in any language. To resolve it:
+**Not every stretch is project work to resolve here.** Lunch, a break,
+an informal chat, a commute -- anything obviously not Jira work -- skips
+this whole section: no `my_work`, no `search`, and no offer to create an
+issue for it (section 4 doesn't apply to it either). Tally it with the
+user's own words as its label (rule 1) and leave it unresolved; section
+6 excludes it from logging automatically instead of asking what issue it
+belongs to.
+
+For anything that *is* project work, the user says "the media thing" or
+"those logs", not `PAY-96` -- and may say it in any language. To resolve
+it:
 
 1. Check what you already know first -- issues already named in this
    conversation, or anything remembered about this project's issues and
@@ -170,10 +196,13 @@ When the user asks to log the day (or says they're done):
    start to whatever time it is now.
 2. Show the whole breakdown first -- per issue: linked key, summary,
    total duration, start time, and the description you propose to log.
-   Include any stretch still not tied to an issue as an explicit
-   unresolved item.
-3. **Resolve the unassigned ones with the user before logging anything.**
-   Never log a stretch that isn't tied to a real issue key.
+   List any stretch not tied to an issue too, tagged as either
+   **non-work** (section 3's caveat -- excluded automatically, shown
+   here so the user can correct you if you judged it wrong) or
+   **unresolved** (ambiguous project work, needs the next step).
+3. **Resolve the unresolved ones with the user before logging anything
+   -- never a non-work one.** Never log a stretch that isn't tied to a
+   real issue key.
 4. Then confirm and log **one issue at a time** -- state that issue's
    entry, wait for an explicit yes, run its command, report the result,
    then move to the next:
