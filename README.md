@@ -2,13 +2,14 @@
 
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds one toolset
-(`jira`, plus its many thin per-action wrapper skills), two standalone
-skills (`mood`, `prd`), and one internal toolset (`telegram`, excluded
-from default installs); it's meant to grow with unrelated toolsets (e.g.
-a company back-office toolset) and further standalone skills alike, each
-following its own pattern's convention -- see "Layout and convention",
-"Standalone skills", and "Internal skills" below for what those patterns
-are, and "Skills in this repo" at the end for the full list.
+(`jira`, plus its many thin per-action wrapper skills), three standalone
+skills (`mood`, `prd`, `trd`), and one internal toolset (`telegram`,
+excluded from default installs); it's meant to grow with unrelated
+toolsets (e.g. a company back-office toolset) and further standalone
+skills alike, each following its own pattern's convention -- see "Layout
+and convention", "Standalone skills", and "Internal skills" below for
+what those patterns are, and "Skills in this repo" at the end for the
+full list.
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions), following the open
@@ -198,9 +199,10 @@ skill** is a single `SKILL.md` file with no sibling directory to shell
 out to -- no `lib/`, `tools/`, `scripts/`, `tests/`, `requirements.txt`,
 or `README.md` of its own. It's pure instructions: markdown the agent
 reads and follows, with no Python, no CLI, and no external API call
-behind it. `mood` (tone/style switch) and `prd` (PRD drafting) are the
-two so far -- see their own `SKILL.md`s for the full reference, or
-"Skills in this repo" below for a one-line description of each.
+behind it. `mood` (tone/style switch), `prd` (PRD drafting), and `trd`
+(TRD drafting) are the three so far -- see their own `SKILL.md`s for the
+full reference, or "Skills in this repo" below for a one-line
+description of each.
 
 Standalone skills need none of "Installation"'s Python/env-var steps --
 installing the skill is the whole setup.
@@ -272,4 +274,5 @@ instead (linked below), not repeated here.
 | [`jira`](skills/jira) | Toolset (Read + Write) | Do-everything Jira assistant -- see [`skills/jira/README.md`](skills/jira/README.md) for its full thin-skill catalog |
 | [`mood`](skills/mood) | Standalone | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
 | [`prd`](skills/prd) | Standalone | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, a PRD-implementation-status navigation map |
+| [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |
 | [`telegram`](skills/telegram) | Toolset, **internal** | Reads/sends personal Telegram messages via Telethon -- see [`skills/telegram/README.md`](skills/telegram/README.md) for its disclaimer and security model before installing |
