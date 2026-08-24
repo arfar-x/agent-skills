@@ -10,6 +10,7 @@ description: >-
   security reviewers.
 version: 1.0.0
 metadata:
+  doc_type: trd
   hermes:
     tags: [software, architecture, technical-documentation, trd, engineering]
     category: software-development

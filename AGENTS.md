@@ -26,6 +26,16 @@ which grants standing access to a personal account) -- it is not a
 general-purpose "hide this skill" switch, and it doesn't relax any of the
 conventions below.
 
+A standalone skill that produces a document from a template (`prd`,
+`trd`, and any future `erd`/`adr`/`rfc`/...) should additionally set
+`metadata.doc_type: <slug>` in its `SKILL.md` frontmatter -- see
+`skills/prd/SKILL.md` and `skills/trd/SKILL.md`. This is what
+[`mcp-server/`](mcp-server)'s `doc_gen` tool discovers at startup to
+build its `doc_type` enum; a new document-generation skill only needs
+this one frontmatter line to appear there automatically, with no
+`mcp-server` code changes. Don't set it on a standalone skill that isn't
+a document template (`mood` doesn't set it).
+
 A toolset also isn't required to ship thin per-action `skills/<toolset>-*/`
 wrapper skills (below) -- `skills/telegram/` is the first example of a
 toolset with none, deliberately, since multiplying a high-risk skill's
@@ -58,6 +68,58 @@ When changing an action's CLI flags or output, update every
 `<toolset>-*/SKILL.md` that documents that action's invocation -- they
 hardcode example commands and are not generated from the CLI
 dispatcher's argparse definitions.
+
+`mcp-server/` is a different kind of thing and doesn't follow the shape
+above -- it's not itself a toolset or a skill, it's a small MCP server
+that serves every skill above (still reading each `SKILL.md` live, never
+duplicating its instructions) to MCP clients that can't read the Agent
+Skills format natively. Its tools are generated at startup by
+introspecting each toolset's own `build_parser()`, so -- unlike the
+`<toolset>-*/SKILL.md` rule just above -- **it needs no manual update
+when a toolset's CLI flags change.** Its own `mcp-server/README.md` and
+`mcp-server/tests/` cover its change/test workflow.
+
+**A new toolset gets MCP support automatically, for free, if -- and
+only if -- its CLI dispatcher follows the same shape
+`skills/jira/scripts/jira_tool.py` and
+`skills/telegram/scripts/telegram_tool.py` already use.** This isn't a
+separate thing to build for MCP -- it's the same toolset layout this
+file already asks for, made into a hard contract because
+`mcp-server/lib/introspect.py` now reads it directly instead of a human
+reading it. Concretely, for every new/changed toolset:
+
+- `build_parser()` returns one top-level `ArgumentParser` with
+  `add_subparsers(dest="tool", required=True)`; each action is
+  `subparsers.add_parser("name", help="...")` with a real, one-line
+  `help=` string -- that string becomes the generated MCP tool's
+  description, so don't omit it or leave it generic.
+- Every argument is a `--flag` (`add_argument("--name", ...)`), never
+  positional. A positional argument can't be mapped to a named MCP tool
+  parameter -- the introspector refuses to register *any* of that
+  toolset's tools rather than guess, so one positional argument on one
+  subcommand breaks MCP access to the entire toolset until it's fixed.
+- Prefer plain `str` (the default, no `type=`), `int`, `float`,
+  `action="store_true"` for a boolean, or `action="append"` for a
+  repeatable flag (becomes a JSON array) -- these get an exact JSON
+  Schema type in the generated tool. A custom `type=` callable (e.g. a
+  hand-rolled true/false string parser) still works and is still
+  validated by the CLI itself when it runs, but shows up as a plain
+  string in the generated tool's schema since the introspector can't
+  infer an arbitrary function's semantics -- use the built-in forms
+  above instead whenever the flag's validation logic allows it.
+- `choices=[...]` on an argument becomes a JSON Schema `enum` -- use it
+  for any flag that only accepts a known, fixed set of values.
+- `main()` must keep printing exactly one `json.dumps(result,
+  default=str)` document to stdout, success or failure alike, and exit
+  `0` for any handled outcome (`{"error": {...}}` included) -- this was
+  already the rule for every human/agent reading the CLI directly, and
+  it's now also what `mcp-server` itself parses, treating non-JSON
+  stdout or a nonzero exit as its own structured error.
+- A write action's confirm gate (see the confirm-gating rule below)
+  needs no MCP-specific handling as long as `--confirm` stays a plain
+  `action="store_true"` flag -- `mcp-server` only forwards whatever the
+  caller passes, so the same two-step `requires_confirmation`/
+  `pending_action` flow already works unchanged over MCP.
 
 When adding a brand-new toolset, follow the "Adding a toolset" section
 in the top-level `README.md`. See that file's "Agent Skills format"
@@ -99,7 +161,17 @@ These apply repo-wide, to every toolset, not just Jira:
   every env var that its code path actually reads -- Hermes uses that
   list to decide which vars are allowed to pass through to the sandboxed
   `terminal` tool that runs the CLI. An unlisted var will be silently
-  stripped at runtime, not just undocumented.
+  stripped at runtime, not just undocumented. `mcp-server` reads the
+  same list too, for a matching but separate reason: it runs a
+  pre-flight check before spawning any subcommand and returns a clear
+  `missing_environment_variables` error instead of a raw traceback when
+  one's unset. That check trusts one convention about each entry's
+  `required_for` prose: write it starting with the literal word
+  "optional" for a var that's genuinely optional (as every current
+  `SKILL.md` already does, e.g. `JIRA_DEFAULT_PROJECT`'s "optional --
+  scopes issue lookups"), and anything else for one that's required.
+  Don't phrase a required var's `required_for` in a way that happens to
+  start with "optional" -- it will be silently treated as unset-and-fine.
 - **Agent/runtime-specific details belong in `SKILL.md`'s frontmatter
   (`metadata.hermes.*`, `required_environment_variables`), never in the
   skill's body prose, `prompts/`, or the tool-invocation instructions

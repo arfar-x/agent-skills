@@ -17,6 +17,13 @@ frontmatter + a markdown body of instructions), following the open
 Code, claude.ai, Hermes, and any other runtime that reads `SKILL.md`
 files.
 
+New here, or building on top of this repo (e.g. wiring it into a
+workflow tool)? See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the
+purpose, the request-to-response flow (both the native `SKILL.md` path
+and the [MCP server](mcp-server) path), the core entities, and a worked
+example of automating a doc-generation-to-Jira pipeline on top of this
+repo.
+
 ## Installation
 
 **Primary method: [`npx skills`](https://github.com/vercel-labs/skills)**,
@@ -78,14 +85,40 @@ git clone git@github.com:arfar-x/agent-skills.git
 
 Then either symlink/copy the skill directories your runtime expects
 (`.claude/skills/<name>/` for Claude Code, `skills.external_dirs` in
-Hermes' config, a zip upload for claude.ai), or use `jira`/`mood`/`prd`
-straight from the checkout. A symlinked or `external_dirs`-registered
+Hermes' config, a zip upload for claude.ai), or use `jira`/`mood`/`prd`/
+`trd` straight from the checkout. A symlinked or `external_dirs`-registered
 skill reflects the latest commit the moment you `git pull`; a copied
 directory (`cp -r`, a claude.ai zip) needs to be manually redone after
 each pull. See "Frontmatter compatibility" below for why the exact same
 `SKILL.md` works across every runtime without a per-platform variant --
 per-skill `README.md`s stay runtime-agnostic on purpose, so this is the
 one place runtime setup specifics live.
+
+## Skills directly, or via the MCP server?
+
+Two ways to consume what's in this repo -- pick based on what your
+runtime/client actually speaks:
+
+- **Your runtime already reads `SKILL.md` natively** (Hermes, Claude
+  Code, claude.ai) -> install the skill directly, per "Installation"
+  above. Nothing below is relevant to you.
+- **Your client speaks MCP but can't read `SKILL.md`/Agent Skills
+  format** (Dify, Claude Desktop, or any other MCP client) -> point it
+  at [`mcp-server/`](mcp-server) instead. It's a small server, embedded
+  in this repo, that serves the exact same skills over MCP: every
+  skill's instructions are still read live from its `SKILL.md` (via a
+  `get_skill` tool -- nothing about the instructions is duplicated or
+  reauthored), and each toolset's actions are exposed as typed tools
+  (`jira_worklog`, `jira_now`, ...) generated from the same CLI every
+  other runtime already shells out to. One source of instructions,
+  fanned out to whichever format the client needs.
+
+Internal skills (e.g. `telegram`) stay opt-in either way -- direct
+install still needs `INSTALL_INTERNAL_SKILLS=1`; the MCP server needs
+`--include-internal` (or the same env var) on top of that, plus
+telegram's own `/dev/tty`-confirm caveat for outbound sends. See
+[`mcp-server/README.md`](mcp-server/README.md) for setup and that
+caveat in full.
 
 ## Usage
 
