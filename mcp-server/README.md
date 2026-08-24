@@ -80,6 +80,29 @@ If your checkout lives somewhere the server can't infer on its own, set
 `AGENT_SKILLS_REPO_ROOT` to the repo's root (defaults to the parent of
 this directory).
 
+### Running over HTTP (Dify, or any client that connects to a URL)
+
+`stdio` only works when the client spawns this process itself, on the
+same machine. A client like self-hosted **Dify** connects to an
+already-running server over the network instead -- in Dify, that's
+**Tools -> MCP -> Add MCP Server (HTTP)**. Start the server with
+`--transport http`:
+
+```bash
+python3 server.py --transport http --host 0.0.0.0 --port 8321
+```
+
+Then give Dify the URL `http://<this-machine's-address>:8321/mcp`
+(`/mcp` is the default path for `http`/`streamable-http`; `--path` to
+change it). `--host 0.0.0.0` is what makes it reachable from outside
+this machine -- e.g. from Dify running in its own Docker container.
+Leave `--host` at its default `127.0.0.1` if only local clients need
+it. `--include-internal`/env vars/every other flag work the same as
+under stdio.
+
+`sse` is also available (`--transport sse`) for a client that only
+supports the older SSE transport rather than `http`/`streamable-http`.
+
 ### Internal skills (e.g. `telegram`)
 
 Skills marked `metadata.internal: true` are excluded by default. Turn

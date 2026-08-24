@@ -132,12 +132,54 @@ def main() -> None:
             "matching this repo's existing internal-skill convention."
         ),
     )
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "http", "sse", "streamable-http"],
+        default="stdio",
+        help=(
+            "MCP transport. 'stdio' (default) is for a client that spawns this "
+            "process itself (Claude Desktop, `fastmcp` CLI tools) -- no "
+            "network involved, no port. Use 'http' for a client that connects "
+            "to an already-running server over the network instead -- e.g. "
+            "Dify's 'Add MCP Server (HTTP)', which needs a URL, not a "
+            "command. 'http' and 'streamable-http' are the same modern "
+            "transport; 'sse' is the older one, for a client that only "
+            "supports that."
+        ),
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help=(
+            "Bind host for --transport http/sse (ignored for stdio). "
+            "127.0.0.1 (default) only accepts connections from this machine -- "
+            "use 0.0.0.0 so a container/host running Dify (or anything else "
+            "not on localhost) can reach it."
+        ),
+    )
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Bind port for --transport http/sse (ignored for stdio)."
+    )
+    parser.add_argument(
+        "--path",
+        default=None,
+        help=(
+            "Endpoint path for --transport http/sse (ignored for stdio). "
+            "Defaults to /mcp for http/streamable-http, /sse for sse -- e.g. "
+            "http://127.0.0.1:8000/mcp is the full URL a client connects to "
+            "with the defaults above."
+        ),
+    )
     args = parser.parse_args()
 
     global app
     if args.include_internal:
         app = build_app(include_internal=True)
-    app.run()
+
+    if args.transport == "stdio":
+        app.run()
+    else:
+        app.run(transport=args.transport, host=args.host, port=args.port, path=args.path)
 
 
 if __name__ == "__main__":
