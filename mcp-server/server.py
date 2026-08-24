@@ -109,6 +109,18 @@ def build_app(*, include_internal: bool) -> FastMCP:
     return app
 
 
+# Module-level `app`, built with the safe (no-internal-skills) default --
+# exists purely so fastmcp's own CLI tooling (`fastmcp run/list/call`,
+# `fastmcp dev inspector`) can find this server. Those expect a bare
+# `mcp`/`server`/`app` variable, not a function to call, since they're
+# meant to work against arbitrary third-party servers without knowing how
+# any particular one builds itself. `python3 server.py`'s own startup
+# (below) doesn't use this at all when --include-internal is passed --
+# it rebuilds instead, so telegram's tools are never silently included
+# just because this default object exists.
+app = build_app(include_internal=resolve_include_internal(False))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -122,8 +134,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    include_internal = resolve_include_internal(args.include_internal)
-    app = build_app(include_internal=include_internal)
+    global app
+    if args.include_internal:
+        app = build_app(include_internal=True)
     app.run()
 
 
