@@ -223,6 +223,32 @@ These apply repo-wide, to every toolset, not just Jira:
   `README.md`, test, or example -- when illustrating the pattern, use an
   obviously generic placeholder instead.
 
+- **Releases and skill versions follow [SemVer](https://semver.org)**
+  (`MAJOR.MINOR.PATCH`). Two separate surfaces carry a version, both
+  governed by the same rules:
+  - **Repo-level git tags** (`vX.Y.Z`, e.g. `v0.1.0`, `v0.2.0`) mark a
+    release snapshot of the whole repo, as annotated tags
+    (`git tag -a vX.Y.Z -m "..."`). Bump `MAJOR` for a breaking change
+    (a removed/renamed tool, subcommand, CLI flag, or MCP tool; a
+    changed JSON response shape an existing consumer would already be
+    parsing); `MINOR` for a backward-compatible addition (a new
+    toolset, a new skill, a new subcommand/flag, a new MCP tool);
+    `PATCH` for a backward-compatible fix (bug fix, doc correction,
+    test-only change) that doesn't add or remove anything callable.
+    While the repo is still `0.x`, SemVer itself allows anything to
+    change without a major bump -- keep using `MINOR`/`PATCH` by the
+    same rules anyway, so the tag history stays meaningful once the
+    repo reaches `1.0.0`.
+  - **Each skill's own `version:` frontmatter field** in its `SKILL.md`
+    tracks that one skill's changes independently, by the same
+    `MAJOR`/`MINOR`/`PATCH` rules, scoped to that skill alone -- a
+    breaking change to `jira`'s CLI bumps `jira`'s `version`, not every
+    other skill's. Bump it in the same change that alters the skill's
+    behavior, not as a separate followup -- same discipline as "When
+    changing an action's CLI flags or output, update every
+    `<toolset>-*/SKILL.md`" above: the version bump is part of that
+    same update, not a thing to remember later.
+
 Toolset-specific conventions (e.g. "Jira auth is Basic-only, don't
 reintroduce PAT without being asked") belong in that toolset's own
 `skills/<toolset>/README.md`, not here.
