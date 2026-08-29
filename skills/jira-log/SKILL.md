@@ -9,6 +9,7 @@ description: >-
   gated behind explicit user confirmation.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, tickets, worklog, write]
     category: software-development

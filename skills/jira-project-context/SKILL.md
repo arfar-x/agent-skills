@@ -9,6 +9,7 @@ description: >-
   guessing.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, tickets, reference]
     category: software-development

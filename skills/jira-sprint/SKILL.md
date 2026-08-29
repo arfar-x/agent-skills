@@ -5,6 +5,7 @@ description: >-
   sprint", "when does this sprint end", "what's the sprint goal".
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, sprint, board]
     category: software-development

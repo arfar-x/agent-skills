@@ -9,6 +9,7 @@ description: >-
   chosen over another for future readers.
 version: 1.0.0
 metadata:
+  category: software-development
   doc_type: adr
   hermes:
     tags: [architecture, documentation, decision-record, adr, engineering]

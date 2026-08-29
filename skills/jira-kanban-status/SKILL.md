@@ -7,6 +7,7 @@ description: >-
   (no sprints) instead.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, kanban, board]
     category: software-development

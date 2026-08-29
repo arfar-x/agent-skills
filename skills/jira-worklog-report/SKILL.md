@@ -7,6 +7,7 @@ description: >-
   work", "what did I get stuck on recently".
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, worklogs, time-tracking]
     category: software-development

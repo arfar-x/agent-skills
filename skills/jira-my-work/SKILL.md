@@ -6,6 +6,7 @@ description: >-
   my open tickets", "summarize my tickets".
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, tickets]
     category: software-development

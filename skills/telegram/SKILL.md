@@ -10,6 +10,7 @@ description: >-
   authenticate, log in, or handle a phone number/code/2FA password.
 version: 1.0.0
 metadata:
+  category: productivity
   internal: true
   hermes:
     tags: [telegram, messaging, high-risk]

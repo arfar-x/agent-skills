@@ -7,6 +7,7 @@ description: >-
   write operation gated behind explicit user confirmation.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, tickets, write]
     category: software-development

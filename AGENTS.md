@@ -182,6 +182,18 @@ These apply repo-wide, to every toolset, not just Jira:
   in frontmatter for Hermes to key off of. This keeps one `SKILL.md` per
   action usable, unmodified, across every runtime -- only the manifest
   varies by consumer, not the instructions.
+- **Every skill also sets a top-level `metadata.category`** -- a plain
+  string, one of the same fixed values `metadata.hermes.category` uses
+  (`software-development`, `productivity`, ...) -- so a generic,
+  spec-compliant Agent Skills client (not just Hermes) can group skills
+  by category without knowing to look inside a runtime-specific
+  namespace. This is a real duplicate of `metadata.hermes.category`, not
+  a replacement for it: the top-level key is what any conventional tool
+  reads, while `metadata.hermes.category` stays because Hermes' own
+  installer specifically reads that nested path to sort an installed
+  skill into its category folder (`productivity/`,
+  `software-development/`, ...). Set both to the same value; don't let
+  them drift.
 
 - **If a toolset has facts that are stable but not known in advance**
   (a project's real status names, a board's type, a resolved id for a

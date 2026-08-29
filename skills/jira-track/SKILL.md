@@ -9,6 +9,7 @@ description: >-
   focused work, and writes the time to Jira one confirmation at a time.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, worklog, time-tracking, write]
     category: software-development

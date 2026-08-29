@@ -9,6 +9,7 @@ description: >-
   boards, worklogs, or ticket status.
 version: 1.0.0
 metadata:
+  category: software-development
   hermes:
     tags: [jira, project-management, tickets, tools]
     category: software-development

@@ -11,6 +11,7 @@ description: >-
   something is deferred and CURRENT_STATE.md needs updating.
 version: 1.0.0
 metadata:
+  category: productivity
   doc_type: prd
   hermes:
     tags: [product, documentation, planning, prd]

@@ -10,6 +10,7 @@ description: >-
   directed at anyone outside this conversation.
 version: 1.0.0
 metadata:
+  category: productivity
   hermes:
     tags: [tone, style, persona, conversation]
     category: productivity

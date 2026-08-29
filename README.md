@@ -159,10 +159,10 @@ the whole point of writing skills this way instead of tying them to one
 runtime's proprietary plugin format.
 
 The spec requires only `name`/`description`. This repo's `SKILL.md`s add
-extra frontmatter (`version`, `metadata.hermes.*`, `metadata.internal`,
-`required_environment_variables`) that isn't part of the open spec --
-keys a spec-compliant runtime simply doesn't recognize and ignores, per
-"Frontmatter compatibility" below.
+extra frontmatter (`version`, `metadata.category`, `metadata.hermes.*`,
+`metadata.internal`, `required_environment_variables`) that isn't part
+of the open spec -- keys a spec-compliant runtime simply doesn't
+recognize and ignores, per "Frontmatter compatibility" below.
 
 Runtime-specific docs, for context (not the spec itself, but the primary
 runtimes this repo is written to run under):
@@ -172,16 +172,28 @@ runtimes this repo is written to run under):
 
 ### Frontmatter compatibility
 
+`metadata.category` is a plain string under the spec's own `metadata`
+map (`author`/`version` in the spec's example are the same shape) --
+every skill in this repo sets it to one of a small fixed set of values
+(`software-development`, `productivity`, ...) so that any spec-compliant
+client, not just Hermes, can group skills by category without knowing
+about a runtime-specific namespace.
+
 Hermes-only frontmatter keys (`metadata.hermes.*`,
 `required_environment_variables`) are just unknown YAML to Claude and are
-ignored -- no stripping or per-platform variant is needed. `metadata.internal`
-is a convention this repo's own frontmatter follows (see "Internal
-skills" below), not part of the spec either. The same `SKILL.md` file
-works unmodified across every runtime above; Hermes specifically runs
-skill code in a sandboxed `terminal` tool that strips any env var not
-listed in that skill's `required_environment_variables` (see `AGENTS.md`'s
-"Conventions" for the exact mechanism), which is the one place a
-toolset's frontmatter does real work beyond documentation.
+ignored -- no stripping or per-platform variant is needed.
+`metadata.hermes.category` duplicates the top-level `metadata.category`
+above rather than replacing it -- Hermes' own installer specifically
+reads that nested path to sort an installed skill into its category
+folder, so it stays even though the top-level key already covers every
+other client. `metadata.internal` is a convention this repo's own
+frontmatter follows (see "Internal skills" below), not part of the spec
+either. The same `SKILL.md` file works unmodified across every runtime
+above; Hermes specifically runs skill code in a sandboxed `terminal`
+tool that strips any env var not listed in that skill's
+`required_environment_variables` (see `AGENTS.md`'s "Conventions" for
+the exact mechanism), which is the one place a toolset's frontmatter
+does real work beyond documentation.
 
 ## Layout and convention
 
