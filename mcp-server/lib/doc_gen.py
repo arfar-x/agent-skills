@@ -49,7 +49,15 @@ def build_doc_gen_tool(manifests) -> GeneratedTool | None:
         return None
 
     def handler(arguments: dict[str, Any]) -> dict[str, Any]:
-        doc_type = arguments["doc_type"]
+        doc_type = arguments.get("doc_type")
+        if not doc_type:
+            return {
+                "error": {
+                    "type": "missing_argument",
+                    "message": "doc_type is required.",
+                    "available": sorted(by_doc_type),
+                }
+            }
         manifest = by_doc_type.get(doc_type)
         if manifest is None:
             return {

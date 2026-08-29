@@ -75,6 +75,20 @@ def test_doc_gen_tool_returns_live_instructions_for_known_type(tmp_path):
     assert '"skill_name":"prd"' in text.replace(" ", "")
 
 
+def test_doc_gen_tool_missing_doc_type_returns_error_instead_of_raising(tmp_path):
+    prd_path = tmp_path / "prd" / "SKILL.md"
+    prd_path.parent.mkdir(parents=True)
+    _write_skill_md(prd_path, "prd")
+
+    manifests = [_manifest("prd", "standalone", prd_path, doc_type="prd")]
+    tool = build_doc_gen_tool(manifests)
+
+    result = asyncio.run(tool.run({}))
+    text = result.content[0].text
+    assert '"type":"missing_argument"' in text.replace(" ", "")
+    assert '"available":["prd"]' in text.replace(" ", "")
+
+
 def test_doc_gen_tool_unknown_type_lists_available_options(tmp_path):
     prd_path = tmp_path / "prd" / "SKILL.md"
     prd_path.parent.mkdir(parents=True)
