@@ -158,7 +158,8 @@ Fixed tools that exist regardless of which toolsets are installed:
   `doc_type` argument is a real JSON Schema `enum`, built at startup
   from whichever standalone skills declare `metadata.doc_type: <slug>`
   in their own `SKILL.md` frontmatter -- see `skills/prd/SKILL.md`,
-  `skills/trd/SKILL.md`, and `skills/adr/SKILL.md`. Adding a new document-generation skill (e.g.
+  `skills/trd/SKILL.md`, `skills/adr/SKILL.md`, and `skills/rfc/SKILL.md`.
+  Adding a new document-generation skill (e.g.
   `skills/erd/SKILL.md` with `metadata.doc_type: erd`) makes it appear
   in `doc_gen`'s enum automatically; nothing in this server needs
   editing. Like `get_skill`, it never generates anything itself -- it

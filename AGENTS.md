@@ -27,9 +27,10 @@ general-purpose "hide this skill" switch, and it doesn't relax any of the
 conventions below.
 
 A standalone skill that produces a document from a template (`prd`,
-`trd`, and any future `erd`/`adr`/`rfc`/...) should additionally set
+`trd`, `adr`, `rfc`, and any future `erd`/...) should additionally set
 `metadata.doc_type: <slug>` in its `SKILL.md` frontmatter -- see
-`skills/prd/SKILL.md` and `skills/trd/SKILL.md`. This is what
+`skills/prd/SKILL.md`, `skills/trd/SKILL.md`, `skills/adr/SKILL.md`, and
+`skills/rfc/SKILL.md`. This is what
 [`mcp-server/`](mcp-server)'s `doc_gen` tool discovers at startup to
 build its `doc_type` enum; a new document-generation skill only needs
 this one frontmatter line to appear there automatically, with no

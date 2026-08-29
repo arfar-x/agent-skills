@@ -7,7 +7,7 @@ description: >-
   made or being made. Use when the user asks to write/draft an ADR,
   record a design/architecture decision, or document why one option was
   chosen over another for future readers.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   doc_type: adr
@@ -161,10 +161,11 @@ that only holds approximately, and under what condition it breaks down
 
 ## Relationship with other documents
 
-`PRD -> TRD -> ADR/ERD/API spec -> Implementation`. An ADR usually
+`PRD -> TRD -> RFC/ADR/ERD/API spec -> Implementation`. An ADR usually
 exists because a [`trd`](../trd)'s "Risks & trade-offs" section flagged a
-decision as deserving a permanent record -- link back to that TRD from
-Context if one exists. When a later ADR reverses an earlier one, set the
-earlier ADR's Status to `Superseded by ADR NNNN` rather than deleting or
-rewriting it -- the record of what was once decided, and why it changed,
-is the point of keeping ADRs at all.
+decision as deserving a permanent record, or because an [`rfc`](../rfc)'s
+review settled a specific decision worth recording on its own -- link
+back to that TRD/RFC from Context if one exists. When a later ADR
+reverses an earlier one, set the earlier ADR's Status to `Superseded by
+ADR NNNN` rather than deleting or rewriting it -- the record of what was
+once decided, and why it changed, is the point of keeping ADRs at all.

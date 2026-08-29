@@ -2,8 +2,8 @@
 
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds one toolset
-(`jira`, plus its many thin per-action wrapper skills), four standalone
-skills (`mood`, `prd`, `trd`, `adr`), and one internal toolset (`telegram`,
+(`jira`, plus its many thin per-action wrapper skills), five standalone
+skills (`mood`, `prd`, `trd`, `adr`, `rfc`), and one internal toolset (`telegram`,
 excluded from default installs); it's meant to grow with unrelated
 toolsets (e.g. a company back-office toolset) and further standalone
 skills alike, each following its own pattern's convention -- see "Layout
@@ -86,7 +86,7 @@ git clone git@github.com:arfar-x/agent-skills.git
 Then either symlink/copy the skill directories your runtime expects
 (`.claude/skills/<name>/` for Claude Code, `skills.external_dirs` in
 Hermes' config, a zip upload for claude.ai), or use `jira`/`mood`/`prd`/
-`trd`/`adr` straight from the checkout. A symlinked or `external_dirs`-registered
+`trd`/`adr`/`rfc` straight from the checkout. A symlinked or `external_dirs`-registered
 skill reflects the latest commit the moment you `git pull`; a copied
 directory (`cp -r`, a claude.ai zip) needs to be manually redone after
 each pull. See "Frontmatter compatibility" below for why the exact same
@@ -245,9 +245,9 @@ out to -- no `lib/`, `tools/`, `scripts/`, `tests/`, `requirements.txt`,
 or `README.md` of its own. It's pure instructions: markdown the agent
 reads and follows, with no Python, no CLI, and no external API call
 behind it. `mood` (tone/style switch), `prd` (PRD drafting), `trd` (TRD
-drafting), and `adr` (ADR drafting) are the four so far -- see their own
-`SKILL.md`s for the full reference, or "Skills in this repo" below for a
-one-line description of each.
+drafting), `adr` (ADR drafting), and `rfc` (RFC drafting) are the five so
+far -- see their own `SKILL.md`s for the full reference, or "Skills in
+this repo" below for a one-line description of each.
 
 Standalone skills need none of "Installation"'s Python/env-var steps --
 installing the skill is the whole setup.
@@ -321,4 +321,5 @@ instead (linked below), not repeated here.
 | [`prd`](skills/prd) | Standalone | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, a PRD-implementation-status navigation map |
 | [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |
 | [`adr`](skills/adr) | Standalone | Records a design/architecture decision, its context, alternatives, and consequences under `docs/ADRs/` |
+| [`rfc`](skills/rfc) | Standalone | Turns a proposed technical/architecture change into an RFC -- problem, design, risks, migration plan -- under `docs/RFCs/`, for team review |
 | [`telegram`](skills/telegram) | Toolset, **internal** | Reads/sends personal Telegram messages via Telethon -- see [`skills/telegram/README.md`](skills/telegram/README.md) for its disclaimer and security model before installing |

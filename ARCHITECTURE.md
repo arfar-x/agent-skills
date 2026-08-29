@@ -37,7 +37,7 @@ server](mcp-server)) -- see "Two ways to reach the same skill" below.
 | **Skill** | One `SKILL.md`-fronted directory under `skills/`. The unit an agent runtime installs and matches a user request against. |
 | **Toolset** | A skill backed by real code: `lib/` (API client, env-based config), `tools/` (one Python module per action), `scripts/<name>_tool.py` (a CLI dispatcher exposing every tool as a subcommand), `tests/`. `jira` and `telegram` are the two toolsets today. |
 | **Thin wrapper skill** | A `SKILL.md`-only directory (e.g. `jira-worklog/`) with no code of its own, that documents one toolset action for runtimes (like Hermes) that map one skill to one slash command. It shells out to its toolset's own CLI dispatcher; it has nothing to test. |
-| **Standalone skill** | A `SKILL.md`-only directory with **no backing toolset at all** -- `mood`, `prd`, `trd`, `adr`. Pure instructions: there's no code path, no CLI, nothing to execute. The agent's own general-purpose tools (file writes, its own reasoning) carry out the instructions directly. This distinction matters a lot for workflow automation -- see below. |
+| **Standalone skill** | A `SKILL.md`-only directory with **no backing toolset at all** -- `mood`, `prd`, `trd`, `adr`, `rfc`. Pure instructions: there's no code path, no CLI, nothing to execute. The agent's own general-purpose tools (file writes, its own reasoning) carry out the instructions directly. This distinction matters a lot for workflow automation -- see below. |
 | **Internal skill** | `metadata.internal: true` in a `SKILL.md`'s frontmatter. Excluded from default installs and from the MCP server's tool list unless explicitly opted into (`INSTALL_INTERNAL_SKILLS=1` / `--include-internal`). `telegram` is the only one today, because it grants standing access to a real personal account. |
 | **Confirm gate** | The code-level check every write action makes before doing anything irreversible: `{"confirmed": false, "requires_confirmation": true, "pending_action": {...}}` on the first call, real execution only once `--confirm`/`confirm=True` is passed (or `*_AUTO_CONFIRM_WRITES=true` is set). This lives in the tool code itself, not just in `SKILL.md` prose -- see "Security model" below. |
 | **MCP server** | [`mcp-server/`](mcp-server) -- a small FastMCP server, added later, that exposes the same skills to MCP clients that can't read `SKILL.md` natively. Not a skill or a toolset itself. |
@@ -158,7 +158,7 @@ skills/
 ├── jira/            toolset: lib/ tools/ scripts/ tests/ requirements.txt README.md
 ├── jira-*/          17 thin wrapper skills, one per jira action
 ├── telegram/         toolset, metadata.internal: true
-├── mood/ prd/ trd/ adr/  standalone skills -- SKILL.md only, no code
+├── mood/ prd/ trd/ adr/ rfc/  standalone skills -- SKILL.md only, no code
 mcp-server/            MCP adapter -- not a skill or toolset, see below
 ```
 
@@ -169,12 +169,12 @@ approve/revise -> push to Jira/Confluence/Notion -> notify a
 developer.** Here's how that maps onto what exists today, and what
 doesn't yet.
 
-1. **Doc generation from a brief (`prd` / `trd` / `adr`, and any future
-   `erd`/`rfc`) is a standalone skill -- there is no tool that
+1. **Doc generation from a brief (`prd` / `trd` / `adr` / `rfc`, and any
+   future `erd`) is a standalone skill -- there is no tool that
    generates the document itself.** Wire it as an LLM/agent node whose
    system prompt is the output of `doc_gen(doc_type="prd")` (or
-   `"trd"`/`"adr"`) -- the real, current instructions, fetched live, not
-   copy-pasted into your workflow tool and left to rot. `doc_gen`'s
+   `"trd"`/`"adr"`/`"rfc"`) -- the real, current instructions, fetched
+   live, not copy-pasted into your workflow tool and left to rot. `doc_gen`'s
    `doc_type` is a real enum in its MCP schema, built from whichever
    standalone skills declare `metadata.doc_type: <slug>` in their own
    `SKILL.md` -- adding a new document template later (e.g.
