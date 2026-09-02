@@ -306,12 +306,46 @@ def test_create_issue_executes_when_confirmed():
         assignee_account_id=None,
         priority=None,
         components=None,
+        custom_fields=None,
     )
 
 
 def test_create_issue_rejects_missing_required_fields():
     result = create_issue.create_issue("", "Fix bug", "Bug")
     assert result["error"]["type"] == "invalid_input"
+
+
+def test_create_issue_passes_custom_fields_through_to_client():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    mock_client.create_issue.return_value = _issue(key="PAYKAN-500")
+    custom_fields = {"customfield_10201": "Expected", "customfield_10202": "Actual"}
+    with patch("tools.create_issue.get_client", return_value=mock_client):
+        result = create_issue.create_issue(
+            "PAYKAN", "Fix bug", "Bug", custom_fields=custom_fields, confirm=True
+        )
+    assert result["confirmed"] is True
+    mock_client.create_issue.assert_called_once_with(
+        "PAYKAN",
+        "Fix bug",
+        "Bug",
+        description=None,
+        parent_key=None,
+        labels=None,
+        assignee_account_id=None,
+        priority=None,
+        components=None,
+        custom_fields=custom_fields,
+    )
+
+
+def test_create_issue_pending_action_echoes_custom_fields():
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=False)
+    custom_fields = {"customfield_10201": "Expected"}
+    with patch("tools.create_issue.get_client", return_value=mock_client):
+        result = create_issue.create_issue("PAYKAN", "Fix bug", "Bug", custom_fields=custom_fields)
+    assert result["pending_action"]["custom_fields"] == custom_fields
 
 
 def test_edit_issue_requires_confirmation_by_default():
@@ -341,6 +375,27 @@ def test_edit_issue_rejects_when_no_fields_given():
         result = edit_issue.edit_issue("PAYKAN-1")
     assert result["error"]["type"] == "invalid_input"
     mock_client.edit_issue.assert_not_called()
+
+
+def test_edit_issue_accepts_only_custom_fields():
+    """custom_fields alone should satisfy the "at least one field" gate."""
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    mock_client.edit_issue.return_value = _issue(key="PAYKAN-1")
+    custom_fields = {"customfield_10201": "Expected"}
+    with patch("tools.edit_issue.get_client", return_value=mock_client):
+        result = edit_issue.edit_issue("PAYKAN-1", custom_fields=custom_fields)
+    assert result["confirmed"] is True
+    mock_client.edit_issue.assert_called_once_with(
+        "PAYKAN-1",
+        summary=None,
+        description=None,
+        labels=None,
+        assignee_account_id=None,
+        priority=None,
+        components=None,
+        custom_fields=custom_fields,
+    )
 
 
 def test_list_fields_returns_client_result():

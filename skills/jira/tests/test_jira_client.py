@@ -541,6 +541,31 @@ def test_create_issue_assignee_without_deployment_type_raises(client):
         client.create_issue("PAYKAN", "Build UI", "Task", assignee_account_id="abc123")
 
 
+def test_create_issue_merges_custom_fields_verbatim(client, mock_session):
+    create_response = make_response(status_code=201, json_data={"key": "PAYKAN-500"})
+    get_response = make_response(
+        json_data={"key": "PAYKAN-500", "fields": {"summary": "Fix bug", "status": {"name": "To Do"}}}
+    )
+    mock_session.request.side_effect = [create_response, get_response]
+
+    client.create_issue(
+        "PAYKAN",
+        "Fix bug",
+        "Bug",
+        custom_fields={"customfield_10201": "Expected output", "customfield_10202": {"value": "Network error"}},
+    )
+
+    post_call = mock_session.request.call_args_list[0]
+    body = post_call.kwargs["json"]["fields"]
+    assert body["customfield_10201"] == "Expected output"
+    assert body["customfield_10202"] == {"value": "Network error"}
+
+
+def test_create_issue_rejects_custom_field_key_without_prefix(client):
+    with pytest.raises(JiraValidationError, match="customfield_"):
+        client.create_issue("PAYKAN", "Fix bug", "Bug", custom_fields={"Expected behavior": "..."})
+
+
 def test_edit_issue_rejects_when_no_fields_given(client):
     with pytest.raises(JiraValidationError):
         client.edit_issue("PAYKAN-1")
@@ -584,6 +609,24 @@ def test_edit_issue_assignee_uses_name_field_on_server(jira_config, mock_session
 def test_edit_issue_assignee_without_deployment_type_raises(client):
     with pytest.raises(JiraValidationError, match="JIRA_DEPLOYMENT_TYPE"):
         client.edit_issue("PAYKAN-1", assignee_account_id="abc123")
+
+
+def test_edit_issue_merges_custom_fields_verbatim(client, mock_session):
+    put_response = make_response(status_code=204)
+    get_response = make_response(
+        json_data={"key": "PAYKAN-1", "fields": {"summary": "New title", "status": {"name": "To Do"}}}
+    )
+    mock_session.request.side_effect = [put_response, get_response]
+
+    client.edit_issue("PAYKAN-1", custom_fields={"customfield_10201": "Expected output"})
+
+    put_call = mock_session.request.call_args_list[0]
+    assert put_call.kwargs["json"] == {"fields": {"customfield_10201": "Expected output"}}
+
+
+def test_edit_issue_rejects_custom_field_key_without_prefix(client):
+    with pytest.raises(JiraValidationError, match="customfield_"):
+        client.edit_issue("PAYKAN-1", custom_fields={"Expected behavior": "..."})
 
 
 def test_default_output_fields_omit_description_and_time_tracking():

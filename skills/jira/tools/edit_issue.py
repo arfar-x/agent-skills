@@ -22,6 +22,7 @@ def edit_issue(
     assignee_account_id: Optional[str] = None,
     priority: Optional[str] = None,
     components: Optional[List[str]] = None,
+    custom_fields: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
 ) -> Dict[str, Any]:
     """Update one or more fields on an existing issue (or subtask).
@@ -36,6 +37,9 @@ def edit_issue(
             ``search_users`` first, never guess it from a display name.
         priority: New priority name, e.g. ``"High"``.
         components: New component name list, replacing the existing one.
+        custom_fields: Any field to set/replace by its real
+            ``customfield_NNNNN`` id -- resolve the id and its expected
+            value shape via ``list_fields`` first, never guess either.
         confirm: Must be ``True`` (or JIRA_AUTO_CONFIRM_WRITES=true) for
             the edit to actually execute. Hermes should set this only
             after the user has explicitly confirmed the action.
@@ -56,10 +60,12 @@ def edit_issue(
             and assignee_account_id is None
             and priority is None
             and components is None
+            and not custom_fields
         ):
             raise ToolInputError(
                 "At least one of 'summary', 'description', 'labels', "
-                "'assignee_account_id', 'priority', or 'components' must be provided."
+                "'assignee_account_id', 'priority', 'components', or "
+                "'custom_fields' must be provided."
             )
 
         client = get_client()
@@ -77,6 +83,7 @@ def edit_issue(
                     "assignee_account_id": assignee_account_id,
                     "priority": priority,
                     "components": components,
+                    "custom_fields": custom_fields,
                 },
             }
 
@@ -88,6 +95,7 @@ def edit_issue(
             assignee_account_id=assignee_account_id,
             priority=priority,
             components=components,
+            custom_fields=custom_fields,
         )
         return {"confirmed": True, "issue": updated.to_dict()}
 

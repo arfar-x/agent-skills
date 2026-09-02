@@ -28,10 +28,11 @@ Usage:
     python scripts/jira_tool.py create_issue --project PAYKAN --summary "..." \\
         --issue_type Story [--description "..."] [--parent_key PAYKAN-100] \\
         [--labels Frontend,UX] [--assignee_account_id ...] [--priority High] \\
-        [--components API] [--confirm]
+        [--components API] [--custom_fields '{"customfield_10201": "..."}'] [--confirm]
     python scripts/jira_tool.py edit_issue --issue_key PAYKAN-123 \\
         [--summary "..."] [--description "..."] [--labels Frontend] \\
-        [--assignee_account_id ...] [--priority High] [--components API] [--confirm]
+        [--assignee_account_id ...] [--priority High] [--components API] \\
+        [--custom_fields '{"customfield_10201": "..."}'] [--confirm]
 
 Every subcommand prints JSON only (never prose) and always exits 0 on a
 handled error -- failures are reported as {"error": {...}} in the JSON
@@ -249,6 +250,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--priority", default=None, help='e.g. "High"')
     p.add_argument("--components", default=None, help="Comma-separated component names")
+    p.add_argument(
+        "--custom_fields",
+        default=None,
+        help='JSON object of customfield_NNNNN -> value, e.g. \'{"customfield_10201": "..."}\'. '
+        "Resolve field ids and expected value shapes via list_fields first, never guess them.",
+    )
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser(
@@ -265,9 +272,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--priority", default=None, help='New priority name, e.g. "High"')
     p.add_argument("--components", default=None, help="Comma-separated component names, replaces the existing list")
+    p.add_argument(
+        "--custom_fields",
+        default=None,
+        help='JSON object of customfield_NNNNN -> value, e.g. \'{"customfield_10201": "..."}\'. '
+        "Resolve field ids and expected value shapes via list_fields first, never guess them.",
+    )
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     return parser
+
+
+def _parse_custom_fields(raw: str | None, flag_name: str) -> tuple[dict | None, dict | None]:
+    """Parse a --custom_fields JSON-object string.
+
+    Returns ``(parsed, None)`` on success or ``(None, error_dict)`` on
+    failure -- callers return the error dict directly instead of calling
+    the tool, so a malformed flag still produces the one JSON document
+    per invocation this script promises, never a raw traceback.
+    """
+    if not raw:
+        return None, None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return None, {"error": {"type": "invalid_input", "message": f"{flag_name} must be valid JSON: {exc}"}}
+    if not isinstance(parsed, dict):
+        return None, {
+            "error": {
+                "type": "invalid_input",
+                "message": f'{flag_name} must be a JSON object, e.g. \'{{"customfield_10201": "..."}}\'.',
+            }
+        }
+    return parsed, None
 
 
 def dispatch(args: argparse.Namespace):
@@ -328,6 +365,9 @@ def dispatch(args: argparse.Namespace):
     if args.tool == "create_issue":
         labels = args.labels.split(",") if args.labels else None
         components = args.components.split(",") if args.components else None
+        custom_fields, err = _parse_custom_fields(args.custom_fields, "--custom_fields")
+        if err:
+            return err
         return create_issue.create_issue(
             args.project,
             args.summary,
@@ -338,11 +378,15 @@ def dispatch(args: argparse.Namespace):
             assignee_account_id=args.assignee_account_id,
             priority=args.priority,
             components=components,
+            custom_fields=custom_fields,
             confirm=args.confirm,
         )
     if args.tool == "edit_issue":
         labels = args.labels.split(",") if args.labels else None
         components = args.components.split(",") if args.components else None
+        custom_fields, err = _parse_custom_fields(args.custom_fields, "--custom_fields")
+        if err:
+            return err
         return edit_issue.edit_issue(
             args.issue_key,
             summary=args.summary,
@@ -351,6 +395,7 @@ def dispatch(args: argparse.Namespace):
             assignee_account_id=args.assignee_account_id,
             priority=args.priority,
             components=components,
+            custom_fields=custom_fields,
             confirm=args.confirm,
         )
     raise AssertionError(f"Unhandled tool: {args.tool}")  # unreachable: argparse enforces choices

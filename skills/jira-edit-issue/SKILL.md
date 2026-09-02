@@ -7,7 +7,7 @@ description: >-
   PAY-101". This is a write operation gated behind explicit user
   confirmation. For moving an issue between statuses, use jira-status
   instead.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -48,8 +48,10 @@ Works the same way on a subtask -- just pass the subtask's own
 
 `--issue_key` is required; at least one of `--summary`, `--description`,
 `--labels` (comma-separated, replaces the existing list), `--assignee_account_id`,
-`--priority`, `--components` (comma-separated, replaces the existing list)
-must be given. Omitted fields are left unchanged.
+`--priority`, `--components` (comma-separated, replaces the existing list),
+`--custom_fields` (a JSON object of `customfield_NNNNN -> value` -- resolve
+ids/shapes via `python3 ../jira/scripts/jira_tool.py list_fields` first,
+never guess either) must be given. Omitted fields are left unchanged.
 
 ## Assignee
 

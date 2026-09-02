@@ -5,7 +5,7 @@ description: >-
   a subtask under one. Use for "create a bug for X", "add a frontend
   subtask under PAY-100". This is a write operation gated behind explicit
   user confirmation.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -52,7 +52,10 @@ python3 ../jira/scripts/jira_tool.py create_issue --project PAYKAN --summary "Bu
 `--project`, `--summary`, and `--issue_type` are required. `--issue_type
 Sub-task` requires `--parent_key`. Optional: `--description`, `--labels`
 (comma-separated), `--assignee_account_id`, `--priority`, `--components`
-(comma-separated).
+(comma-separated), `--custom_fields` (a JSON object of `customfield_NNNNN
+-> value` for any field this project's create screen requires beyond the
+flags above -- resolve ids/shapes via `python3 ../jira/scripts/jira_tool.py
+list_fields` first, never guess either).
 
 ## Check for a remembered convention first
 

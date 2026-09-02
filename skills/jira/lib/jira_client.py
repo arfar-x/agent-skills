@@ -1207,6 +1207,7 @@ class JiraClient:
         assignee_account_id: Optional[str] = None,
         priority: Optional[str] = None,
         components: Optional[List[str]] = None,
+        custom_fields: Optional[Dict[str, Any]] = None,
     ) -> Issue:
         """Create a new issue -- a parent work item, or a subtask.
 
@@ -1229,10 +1230,20 @@ class JiraClient:
                 field shape -- see ``_assignee_field``.
             priority: Priority name, e.g. ``"High"``.
             components: Component names.
+            custom_fields: Any field this Jira instance's screen requires
+                beyond the ones above (e.g. a required "Expected
+                behavior" field on a Bug screen), keyed by its real
+                ``customfield_NNNNN`` id -- resolve the id and its
+                expected value shape via ``list_fields`` first, never
+                guess either. Sent to the API verbatim, merged on top of
+                the fields above.
 
         Raises:
-            JiraValidationError: If required fields are missing, or
-                ``issue_type`` is ``"Sub-task"`` without ``parent_key``.
+            JiraValidationError: If required fields are missing,
+                ``issue_type`` is ``"Sub-task"`` without ``parent_key``,
+                or a ``custom_fields`` key isn't a real
+                ``customfield_NNNNN`` id or collides with one of the
+                named fields above.
         """
         project = (project or "").strip()
         if not project:
@@ -1263,6 +1274,8 @@ class JiraClient:
             fields["priority"] = {"name": priority}
         if components:
             fields["components"] = [{"name": c} for c in components]
+        if custom_fields:
+            self._merge_custom_fields(fields, custom_fields)
 
         raw = self._request("POST", f"{self.API_V2}/issue", json_body={"fields": fields})
         return self.get_issue(raw.get("key", ""))
@@ -1277,6 +1290,7 @@ class JiraClient:
         assignee_account_id: Optional[str] = None,
         priority: Optional[str] = None,
         components: Optional[List[str]] = None,
+        custom_fields: Optional[Dict[str, Any]] = None,
     ) -> Issue:
         """Update fields on an existing issue (or subtask). Only given fields change.
 
@@ -1287,9 +1301,17 @@ class JiraClient:
                 ``JIRA_DEPLOYMENT_TYPE`` to be set (``cloud``/``server``)
                 so it's wrapped in the right field shape -- see
                 ``_assignee_field``.
+            custom_fields: Any field this Jira instance's screen requires
+                beyond the ones above, keyed by its real
+                ``customfield_NNNNN`` id -- resolve the id and its
+                expected value shape via ``list_fields`` first, never
+                guess either. Sent to the API verbatim, merged on top of
+                the fields above.
 
         Raises:
-            JiraValidationError: If no field is given to update.
+            JiraValidationError: If no field is given to update, or a
+                ``custom_fields`` key isn't a real ``customfield_NNNNN``
+                id or collides with one of the named fields above.
         """
         self._require_issue_key(issue_key)
         fields: Dict[str, Any] = {}
@@ -1305,10 +1327,12 @@ class JiraClient:
             fields["priority"] = {"name": priority}
         if components is not None:
             fields["components"] = [{"name": c} for c in components]
+        if custom_fields:
+            self._merge_custom_fields(fields, custom_fields)
         if not fields:
             raise JiraValidationError(
                 "At least one of summary/description/labels/assignee_account_id/"
-                "priority/components must be provided."
+                "priority/components/custom_fields must be provided."
             )
 
         self._request("PUT", f"{self.API_V2}/issue/{issue_key}", json_body={"fields": fields})
@@ -1317,6 +1341,24 @@ class JiraClient:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _merge_custom_fields(fields: Dict[str, Any], custom_fields: Dict[str, Any]) -> None:
+        """Merge caller-supplied custom fields into a request body's ``fields``.
+
+        Every key must be a real ``customfield_NNNNN`` id -- this stops a
+        caller from using ``custom_fields`` as a back door to overwrite a
+        named field like ``project``/``assignee`` (none of which use that
+        prefix), and catches the common mistake of passing a field's
+        display name instead of its id (get the id from ``list_fields``).
+        """
+        for key, value in custom_fields.items():
+            if not isinstance(key, str) or not key.startswith("customfield_"):
+                raise JiraValidationError(
+                    f"custom_fields key {key!r} is not a valid custom field id -- "
+                    "expected the real 'customfield_NNNNN' id (see list_fields), not a display name."
+                )
+            fields[key] = value
 
     @staticmethod
     def _require_issue_key(issue_key: str) -> None:

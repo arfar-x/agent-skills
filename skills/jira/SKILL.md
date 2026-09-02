@@ -7,7 +7,7 @@ description: >-
   and reasoning over their JSON output, never by guessing or inventing
   ticket data. Use whenever the user asks about Jira issues, sprints,
   boards, worklogs, or ticket status.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -150,7 +150,13 @@ python3 scripts/jira_tool.py <tool> [--flags...]
    output into a second interpreter (`python3 -c ...`, `jq`, etc.) to
    compute it. Besides being unnecessary, piping tool output straight
    into another interpreter is exactly the kind of command a security
-   scanner (Hermes' included) will flag and block for approval.
+   scanner (Hermes' included) will flag and block for approval. This
+   also covers a project whose create/edit screen requires a field
+   `create_issue`/`edit_issue` doesn't name directly (e.g. a required
+   "Expected behavior" field on a Bug screen) -- that's what
+   `--custom_fields` is for (a JSON object of `customfield_NNNNN ->
+   value`, resolved via `list_fields`), not a reason to fall back to a
+   hand-rolled script against the Jira REST API.
 10. **Ask for only the fields you need.** `search`'s `--only` and
     `issue_summary`'s `--sections` let you name exactly what to fetch and
     get back, instead of everything. Default to the tool's default set for
@@ -397,15 +403,20 @@ python3 scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 284
 python3 scripts/jira_tool.py triage [--project PAY] [--parent_issue_types Story,Bug,Task]
 
 # Create a new issue or subtask (write, gated -- see rule 5); pass
-# --issue_type Sub-task and --parent_key for a subtask, same tool either way
+# --issue_type Sub-task and --parent_key for a subtask, same tool either way.
+# --custom_fields is a JSON object of customfield_NNNNN -> value, for any
+# field the project's screen requires beyond the named flags above --
+# resolve ids/shapes via list_fields first, never guess either (rule 9).
 python3 scripts/jira_tool.py create_issue --project PAY --summary "Fix checkout crash" \
   --issue_type Bug [--description "..."] [--parent_key PAY-100] [--labels Frontend,UX] \
-  [--assignee_account_id ...] [--priority High] [--components API] --confirm
+  [--assignee_account_id ...] [--priority High] [--components API] \
+  [--custom_fields '{"customfield_10201": "..."}'] --confirm
 
 # Update fields on an existing issue or subtask (write, gated -- see rule 5)
 python3 scripts/jira_tool.py edit_issue --issue_key PAY-123 \
   [--summary "..."] [--description "..."] [--labels Frontend] \
-  [--assignee_account_id ...] [--priority High] [--components API] --confirm
+  [--assignee_account_id ...] [--priority High] [--components API] \
+  [--custom_fields '{"customfield_10201": "..."}'] --confirm
 ```
 
 ## Examples
@@ -622,6 +633,17 @@ Same tool as above, scoped to a subtask: confirm with the user, then run
 Resolve John to an `account_id` via `search_users` first (ask if there's
 more than one match), confirm with the user, then run
 `edit_issue --issue_key PAY-123 --assignee_account_id <account_id> --confirm`.
+
+**Creating a Bug fails with "Expected behavior/Actual behavior/Steps to
+reproduce are required."** These are this project's own custom fields on
+the Bug screen, not something `--description` covers. Run `list_fields`
+to find their real `customfield_NNNNN` ids (never guess them from the
+label), ask the user for each value if they haven't already given them,
+then pass all three as one `--custom_fields` JSON object alongside the
+rest, e.g. `create_issue --project PAY --summary "..." --issue_type Bug
+--custom_fields '{"customfield_10201": "...", "customfield_10202":
+"...", "customfield_10203": "..."}' --confirm` -- not a fallback to a
+hand-rolled script against the Jira API (rule 9).
 
 ## Reference
 

@@ -85,6 +85,7 @@ conversation; that's fine, these are instructions, not a guarantee.
 | Board type (Scrum vs. Kanban) and board id | `sprint`'s `"note"`, `kanban_status`, or `jira-board` | A project doesn't switch board types turn to turn -- see `jira-board`/`jira-sprint`/`jira-kanban-status`'s `SKILL.md`s |
 | Real transition/status names | A `transition` error's "Available transitions" list, or `project_context`'s `statuses` | Same status set `project_context` already covers; a failed `transition` call is a free opportunity to learn it if you haven't already -- see `jira-status/SKILL.md` |
 | A person's `account_id` (scoped to a project) | `search_users`, or `project_context`'s `users` | An account_id doesn't change once resolved -- see `jira-search-users/SKILL.md` |
+| A `customfield_NNNNN` id required by a specific issue type's screen (e.g. Bug's "Expected behavior") | `list_fields`, or a `create_issue`/`edit_issue` error naming the missing field | A screen's required custom fields rarely change once configured -- resolving the same id from scratch every time a Bug is filed is exactly the re-fetch this table exists to avoid |
 
 **What NOT to remember:** only the *shape* of a project is stable. Never
 treat as memorable:
@@ -206,8 +207,8 @@ Jira Server/Data Center.
 | `list_fields()` | Read | Enumerate every field (incl. custom fields) to discover a custom field's id by name |
 | `now()` | Read (local) | Current local wall-clock time, tz-aware, in the ISO format `worklog --date` accepts. The only tool that makes no Jira call -- it exists so relative dates ("now", "last Tuesday") get resolved against a checked clock instead of an assumed one |
 | `triage(project, parent_issue_types, max_results)` | Read | Group unresolved parent issues (Story/Bug/Task) with their labeled subtasks, for frontend/backend/design-readiness triage |
-| `create_issue(project, summary, issue_type, description, parent_key, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Create a new issue or subtask (pass `issue_type="Sub-task"` + `parent_key` for the latter). Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE` |
-| `edit_issue(issue_key, summary, description, labels, assignee_account_id, priority, components, confirm)` | Write (gated) | Update one or more fields on an existing issue or subtask. Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE` |
+| `create_issue(project, summary, issue_type, description, parent_key, labels, assignee_account_id, priority, components, custom_fields, confirm)` | Write (gated) | Create a new issue or subtask (pass `issue_type="Sub-task"` + `parent_key` for the latter). Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE`. `custom_fields` is a `{customfield_NNNNN: value}` dict for any field the project's screen requires beyond the named ones -- resolve ids/shapes via `list_fields` first |
+| `edit_issue(issue_key, summary, description, labels, assignee_account_id, priority, components, custom_fields, confirm)` | Write (gated) | Update one or more fields on an existing issue or subtask. Setting `assignee_account_id` requires `JIRA_DEPLOYMENT_TYPE`. `custom_fields` works the same as in `create_issue` |
 | `project_context(project)` | Read | Reference snapshot of a project: identity, `issue_types`, `statuses`/`statuses_by_issue_type`, `components`, instance `priorities`, assignable `users`, and a sample of `labels` in use -- meant to be fetched once and remembered by the caller rather than re-fetched every turn |
 
 Each tool is reachable both as a Python function (`tools/<name>.py`) and

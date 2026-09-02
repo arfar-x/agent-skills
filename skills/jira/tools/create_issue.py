@@ -24,6 +24,7 @@ def create_issue(
     assignee_account_id: Optional[str] = None,
     priority: Optional[str] = None,
     components: Optional[List[str]] = None,
+    custom_fields: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
 ) -> Dict[str, Any]:
     """Create a new issue.
@@ -39,6 +40,11 @@ def create_issue(
             ``search_users`` first, never guess it from a display name.
         priority: Priority name, e.g. ``"High"``.
         components: Component names.
+        custom_fields: Any field this project's create screen requires
+            beyond the ones above (e.g. a required "Expected behavior"
+            field on a Bug screen), keyed by its real ``customfield_NNNNN``
+            id -- resolve the id and its expected value shape via
+            ``list_fields`` first, never guess either.
         confirm: Must be ``True`` (or JIRA_AUTO_CONFIRM_WRITES=true) for
             the issue to actually be created. Hermes should set this only
             after the user has explicitly confirmed the action.
@@ -70,6 +76,7 @@ def create_issue(
                     "assignee_account_id": assignee_account_id,
                     "priority": priority,
                     "components": components,
+                    "custom_fields": custom_fields,
                 },
             }
 
@@ -83,6 +90,7 @@ def create_issue(
             assignee_account_id=assignee_account_id,
             priority=priority,
             components=components,
+            custom_fields=custom_fields,
         )
         return {"confirmed": True, "issue": created.to_dict()}
 
