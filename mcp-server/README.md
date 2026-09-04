@@ -132,6 +132,37 @@ agent can never self-approve a send" guarantee `skills/telegram/`
 is built around. Reads, `mark_read`, `download_media`, `whoami`,
 `allowed_chats`, and `logout` work normally either way.
 
+### Running in a container
+
+`Dockerfile` (in this directory) builds an image that runs the server over
+HTTP for a client like self-hosted Dify or LibreChat that connects to a URL
+rather than spawning this process. **Build context must be the repo root**,
+not `mcp-server/` -- the image needs `../skills/` as a sibling directory,
+matching the `AGENT_SKILLS_REPO_ROOT` layout `server.py` expects:
+
+```bash
+docker build -f mcp-server/Dockerfile -t agent-skills-mcp .
+docker run --rm -p 8321:8321 \
+  -e JIRA_BASE_URL=https://your-instance.atlassian.net \
+  -e JIRA_USERNAME=you@example.com \
+  -e JIRA_PASSWORD=... \
+  agent-skills-mcp
+```
+
+`--build-arg TOOLSETS="jira confluence"` controls which toolsets' own
+`requirements.txt` get installed into the image alongside `mcp-server`'s --
+default is `jira` alone. `--include-internal` is deliberately never passed in
+the image's `CMD`; `skills/telegram/`'s write-gate assumes a controlling
+terminal a headless container doesn't have (see the internal-skills section
+above). Credentials still come from environment variables only, exactly as
+running the server directly -- pass them with `-e` / `--env-file`, or via
+whatever your orchestrator's secret mechanism is.
+
+The image binds `0.0.0.0:8321` with no authentication of any kind -- the MCP
+HTTP transport has none built in. Never publish this container's port to a
+public network; put it on a private/internal network reachable only by the
+MCP client that needs it (Dify, LibreChat, ...).
+
 ## Tool naming and shape
 
 Every generated tool is named `<toolset>_<subcommand>` and returns
