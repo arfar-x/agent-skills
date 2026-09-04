@@ -147,7 +147,10 @@ that only holds approximately, and under what condition it breaks down
 
 - **Authors**: who wrote this ADR
 - **Developers**: who implements the decision, if different
-- **Date**: when this was written
+- **Date**: when this was written -- today's real date; check your
+  available context for it (shell/system clock, or a `current_date`
+  field if these instructions were handed to you by a tool), never
+  guess it
 - **Ticket**: ticket id (and parent/epic ticket, if any)
 
 ## Style

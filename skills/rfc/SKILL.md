@@ -107,8 +107,10 @@ Related: ... (optional -- linked PRD/TRD/ADR/tickets)
 `Status` is one of `Draft` / `In Review` / `Accepted` / `Rejected` /
 `Withdrawn` / `Superseded by RFC NNNN` (link the other RFC's file when
 superseding) -- defaults to `Draft` for a new RFC. `Created`/`Last
-updated` default to today; update `Last updated` whenever the document
-is meaningfully revised.
+updated` default to today -- today's real date; check your available
+context for it (shell/system clock, or a `current_date` field if these
+instructions were handed to you by a tool), never guess it. Update
+`Last updated` whenever the document is meaningfully revised.
 
 ### 1. Summary
 

@@ -196,7 +196,12 @@ Fixed tools that exist regardless of which toolsets are installed:
   editing. Like `get_skill`, it never generates anything itself -- it
   returns the live instructions, and the caller's own model does the
   writing. Only registered at all if at least one skill currently
-  declares a `doc_type`.
+  declares a `doc_type`. The response also includes a `current_date`
+  field (UTC, `YYYY-MM-DD`, computed fresh on every call) -- every
+  doc-generation skill needs today's real date for its file-naming
+  convention or a Date/Last-updated field, and a model reachable only
+  through this server has no shell or system clock of its own to get
+  that from otherwise. Use it instead of guessing.
 
 ## Known limitations
 

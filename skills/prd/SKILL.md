@@ -77,7 +77,10 @@ default:
    docs/PRDs/YYYY-MM-DD-NN-short-descriptive-feature-name/README.md
    ```
 
-   - `YYYY-MM-DD` is today's date.
+   - `YYYY-MM-DD` is today's real date -- check your available context
+     for it (shell/system clock, or a `current_date` field if these
+     instructions were handed to you by a tool). Never guess it or fall
+     back on a training-data default.
    - `NN` is a 2-digit, zero-padded daily sequence number: `01` for the
      first PRD created that date, `02` for the second, and so on.
      Before writing, list existing directories under `docs/PRDs/` whose

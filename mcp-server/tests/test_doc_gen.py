@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from lib.doc_gen import build_doc_gen_tool, doc_type_manifests
@@ -73,6 +76,21 @@ def test_doc_gen_tool_returns_live_instructions_for_known_type(tmp_path):
     text = result.content[0].text
     assert "Instructions for prd." in text
     assert '"skill_name":"prd"' in text.replace(" ", "")
+
+
+def test_doc_gen_tool_includes_current_date_so_the_model_never_guesses(tmp_path):
+    prd_path = tmp_path / "prd" / "SKILL.md"
+    prd_path.parent.mkdir(parents=True)
+    _write_skill_md(prd_path, "prd")
+
+    manifests = [_manifest("prd", "standalone", prd_path, doc_type="prd")]
+    tool = build_doc_gen_tool(manifests)
+
+    result = asyncio.run(tool.run({"doc_type": "prd"}))
+    payload = json.loads(result.content[0].text)
+
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", payload["current_date"])
+    assert payload["current_date"] == datetime.now(timezone.utc).date().isoformat()
 
 
 def test_doc_gen_tool_missing_doc_type_returns_error_instead_of_raising(tmp_path):

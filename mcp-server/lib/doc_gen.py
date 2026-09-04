@@ -14,10 +14,20 @@ Like get_skill, doc_gen never generates anything itself -- these are
 standalone skills (pure instructions, no code path -- see
 ARCHITECTURE.md). Its whole job is handing the caller the right, live
 instructions to follow; the caller's own model does the actual writing.
+
+Every doc-generation skill's instructions need today's real date --
+for the `YYYY-MM-DD-NN-...` naming convention (prd, trd), or a
+"Date"/"Last updated" field (adr, rfc). A model reached only through
+this MCP server (no shell, no filesystem, no system clock of its own --
+e.g. a chat UI backed by this server as its sole tool source) has no
+way to know that otherwise, and will silently guess -- so this
+response includes `current_date` alongside the instructions, computed
+fresh on every call, never cached.
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from .mcp_tools import GeneratedTool
@@ -74,6 +84,11 @@ def build_doc_gen_tool(manifests) -> GeneratedTool | None:
             "skill_name": manifest.name,
             "frontmatter": frontmatter,
             "instructions": body,
+            # UTC, computed fresh per call -- use this as today's date when
+            # naming files or filling a Date/Last-updated field. Don't guess
+            # or fall back to training data; you have no other reliable
+            # source for it in an MCP-only environment.
+            "current_date": datetime.now(timezone.utc).date().isoformat(),
         }
 
     schema = {
@@ -93,8 +108,10 @@ def build_doc_gen_tool(manifests) -> GeneratedTool | None:
         description=(
             "Fetch the live instructions for generating one kind of document "
             f"({', '.join(sorted(by_doc_type))}). Returns the skill's real "
-            "SKILL.md instructions verbatim -- follow them to actually produce "
-            "the document; this tool does not generate anything itself."
+            "SKILL.md instructions verbatim, plus today's actual date -- "
+            "use that date, don't guess it. This tool does not generate "
+            "anything itself; follow the returned instructions to actually "
+            "produce the document."
         ),
         parameters=schema,
         handler=handler,

@@ -69,10 +69,12 @@ Same convention-check as the [`prd`](../prd) skill:
    docs/TRDs/YYYY-MM-DD-NN-short-descriptive-name/README.md
    ```
 
-   `YYYY-MM-DD` is today's date; `NN` is a 2-digit daily sequence number
-   (highest existing `NN` for today + 1, or `01` if none exist yet
-   today); the slug is kebab-case, with a task ID appended if one
-   exists. Don't renumber or rename existing TRDs.
+   `YYYY-MM-DD` is today's real date -- check your available context for
+   it (shell/system clock, or a `current_date` field if these
+   instructions were handed to you by a tool); never guess it. `NN` is a
+   2-digit daily sequence number (highest existing `NN` for today + 1,
+   or `01` if none exist yet today); the slug is kebab-case, with a task
+   ID appended if one exists. Don't renumber or rename existing TRDs.
 
 ## Output structure
 
