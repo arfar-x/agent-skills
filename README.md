@@ -3,13 +3,14 @@
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds one toolset
 (`jira`, plus its many thin per-action wrapper skills), five standalone
-skills (`mood`, `prd`, `trd`, `adr`, `rfc`), and one internal toolset (`telegram`,
-excluded from default installs); it's meant to grow with unrelated
-toolsets (e.g. a company back-office toolset) and further standalone
-skills alike, each following its own pattern's convention -- see "Layout
-and convention", "Standalone skills", and "Internal skills" below for
-what those patterns are, and "Skills in this repo" at the end for the
-full list.
+skills (`mood`, `prd`, `trd`, `adr`, `rfc`), one internal toolset
+(`telegram`, excluded from default installs), and one vendored skill
+(`strategic-compact`, imported from a third-party repo); it's meant to
+grow with unrelated toolsets (e.g. a company back-office toolset) and
+further standalone/vendored skills alike, each following its own
+pattern's convention -- see "Layout and convention", "Standalone
+skills", "Internal skills", and "Vendored skills" below for what those
+patterns are, and "Skills in this repo" at the end for the full list.
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions), following the open
@@ -276,6 +277,93 @@ installing human to have actively opted in, having read what it grants."
 See `skills/telegram/README.md` for its disclaimer and security model
 before installing it.
 
+## Vendored skills
+
+A **vendored skill** is a `skills/<name>/` directory imported from a
+third-party monorepo we don't control, rather than authored in this
+repo -- [`skills/strategic-compact`](skills/strategic-compact) (from
+[affaan-m/ECC](https://github.com/affaan-m/ECC)'s
+`.agents/skills/strategic-compact`) is the first one. Its files are
+never hand-edited or copy-pasted here: they're pulled in via `git
+subtree`, byte-identical to upstream, with the exact upstream commit
+they came from recorded in the import commit's message -- the same
+"pinned to a commit, pull to update" guarantee a git submodule gives,
+without requiring a `.gitmodules` entry or a second `git clone` step for
+anyone using this repo (every other skill here is a plain checked-out
+file, and a vendored one stays that way too).
+
+**Why not a plain `git subtree add --prefix=X <repo> <ref>`:** that
+pulls in the *entire* source repo's tree at `X`, and ECC is a large
+monorepo with many unrelated skills, scripts, and tooling -- ballooning
+`X` with everything else in ECC just to get one skill's two files isn't
+acceptable. `git subtree split` (the usual tool for narrowing to one
+subdirectory) doesn't help either: unlike `add`, every other subtree
+subcommand checks the prefix against the *current working tree*, so it
+can only split a path that's already part of *this* repo's own history --
+it can't reach into a foreign ref's arbitrary subdirectory that was
+never checked out here.
+
+### Managing vendored skills with `make`
+
+The actual mechanics -- narrowing a foreign monorepo down to one path,
+then handing the result to `git subtree` -- are automated by
+[`scripts/vendor_skill.sh`](scripts/vendor_skill.sh), driven through
+three `make` targets:
+
+```bash
+# Add a new vendored skill from a GitHub tree URL:
+make skill-vendored-add https://github.com/affaan-m/ECC/tree/main/.agents/skills/strategic-compact
+
+# Update an existing one, either by the same URL or just its name
+# (looked up in .vendored-skills.json, the manifest these targets keep):
+make skill-vendored-update https://github.com/affaan-m/ECC/tree/main/.agents/skills/strategic-compact
+make skill-vendored-update strategic-compact
+
+# Remove one entirely:
+make skill-vendored-delete strategic-compact
+```
+
+Under the hood, `add`/`update` (`do_import` in the script):
+
+1. Clone the source repo's ref into a disposable, bare, single-branch
+   scratch clone -- never fetched into *this* repo directly, so ECC's own
+   full history/blobs never touch `agent-skills`' own `.git`.
+2. Run [`git filter-repo`](https://github.com/newren/git-filter-repo)
+   (git's own recommended replacement for the deprecated
+   `git filter-branch`) on that scratch clone with `--path
+   <upstream-subdir> --path-rename <upstream-subdir>/:`, re-rooting its
+   history so the skill's own files become the tree root. `git-filter-repo`
+   isn't assumed to be installed -- if `git filter-repo` isn't on `PATH`,
+   the script downloads git's own pinned single-file release into a
+   gitignored `.cache/tools/`, so a fresh checkout needs no manual setup.
+3. `git subtree add` (first import) or `git subtree merge` (a resync)
+   `--prefix=skills/<name>` against that filtered scratch commit with
+   `--squash`, then delete the scratch clone.
+4. Record `{repo, ref, path, commit}` for `<name>` in
+   [`.vendored-skills.json`](.vendored-skills.json) (committed
+   separately), so a later `update <name>`-by-name doesn't need the URL
+   restated, and so `delete` can report exactly what it's removing.
+
+Every add/update/delete commit is deliberately verbose --
+`git log -- skills/<name>` alone tells the whole provenance story
+(source repo, ref, upstream path, the exact upstream commit, and the
+local destination), with no need to cross-reference the manifest. This
+is a manual, on-demand resync -- nothing here re-runs it automatically,
+so an upstream change only lands here when someone actually runs
+`make skill-vendored-update` again.
+
+Two things these targets deliberately leave to a human: they never touch
+README.md's "Skills in this repo" table or this section (both print a
+reminder afterward), and they never push -- like everything else in this
+repo, that's a separate, explicit step.
+
+Note: the vendored `SKILL.md` documents a `suggest-compact.js` hook
+script and a Claude Code settings.json wiring for it, but that script
+isn't part of `.agents/skills/strategic-compact/` upstream (it lives
+elsewhere in ECC, unvendored) -- the skill's own instructions are
+complete and usable as-is, but that optional hook automation isn't
+included.
+
 ## Adding a toolset
 
 To add an unrelated toolset (e.g. a company back-office skill-set),
@@ -323,3 +411,4 @@ instead (linked below), not repeated here.
 | [`adr`](skills/adr) | Standalone | Records a design/architecture decision, its context, alternatives, and consequences under `docs/ADRs/` |
 | [`rfc`](skills/rfc) | Standalone | Turns a proposed technical/architecture change into an RFC -- problem, design, risks, migration plan -- under `docs/RFCs/`, for team review |
 | [`telegram`](skills/telegram) | Toolset, **internal** | Reads/sends personal Telegram messages via Telethon -- see [`skills/telegram/README.md`](skills/telegram/README.md) for its disclaimer and security model before installing |
+| [`strategic-compact`](skills/strategic-compact) | **Vendored**, from [affaan-m/ECC](https://github.com/affaan-m/ECC) | Suggests manual `/compact` at logical task-phase boundaries instead of relying on arbitrary auto-compaction -- see "Vendored skills" below for provenance and how it's kept in sync |

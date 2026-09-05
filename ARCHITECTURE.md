@@ -39,6 +39,7 @@ server](mcp-server)) -- see "Two ways to reach the same skill" below.
 | **Thin wrapper skill** | A `SKILL.md`-only directory (e.g. `jira-worklog/`) with no code of its own, that documents one toolset action for runtimes (like Hermes) that map one skill to one slash command. It shells out to its toolset's own CLI dispatcher; it has nothing to test. |
 | **Standalone skill** | A `SKILL.md`-only directory with **no backing toolset at all** -- `mood`, `prd`, `trd`, `adr`, `rfc`. Pure instructions: there's no code path, no CLI, nothing to execute. The agent's own general-purpose tools (file writes, its own reasoning) carry out the instructions directly. This distinction matters a lot for workflow automation -- see below. |
 | **Internal skill** | `metadata.internal: true` in a `SKILL.md`'s frontmatter. Excluded from default installs and from the MCP server's tool list unless explicitly opted into (`INSTALL_INTERNAL_SKILLS=1` / `--include-internal`). `telegram` is the only one today, because it grants standing access to a real personal account. |
+| **Vendored skill** | A `SKILL.md`-only directory imported from a third-party repo via `git subtree`, pinned to an exact upstream commit, rather than authored here -- `strategic-compact` (from `affaan-m/ECC`) is the first one. See `README.md`'s "Vendored skills" for provenance and the resync recipe. |
 | **Confirm gate** | The code-level check every write action makes before doing anything irreversible: `{"confirmed": false, "requires_confirmation": true, "pending_action": {...}}` on the first call, real execution only once `--confirm`/`confirm=True` is passed (or `*_AUTO_CONFIRM_WRITES=true` is set). This lives in the tool code itself, not just in `SKILL.md` prose -- see "Security model" below. |
 | **MCP server** | [`mcp-server/`](mcp-server) -- a small FastMCP server, added later, that exposes the same skills to MCP clients that can't read `SKILL.md` natively. Not a skill or a toolset itself. |
 
@@ -159,6 +160,7 @@ skills/
 ├── jira-*/          17 thin wrapper skills, one per jira action
 ├── telegram/         toolset, metadata.internal: true
 ├── mood/ prd/ trd/ adr/ rfc/  standalone skills -- SKILL.md only, no code
+├── strategic-compact/    vendored skill -- imported via git subtree, see README.md
 mcp-server/            MCP adapter -- not a skill or toolset, see below
 ```
 
