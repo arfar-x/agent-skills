@@ -1,0 +1,8 @@
+{
+  "strategic-compact": {
+    "commit": "e04ea0b9cc8248686edf5ac751cadff550e162b8",
+    "path": ".agents/skills/strategic-compact",
+    "ref": "main",
+    "repo": "https://github.com/affaan-m/ECC.git"
+  }
+}
