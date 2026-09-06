@@ -2,15 +2,15 @@
 
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds one toolset
-(`jira`, plus its many thin per-action wrapper skills), five standalone
-skills (`mood`, `prd`, `trd`, `adr`, `rfc`), one internal toolset
-(`telegram`, excluded from default installs), and one vendored skill
-(`strategic-compact`, imported from a third-party repo); it's meant to
-grow with unrelated toolsets (e.g. a company back-office toolset) and
-further standalone/vendored skills alike, each following its own
-pattern's convention -- see "Layout and convention", "Standalone
-skills", "Internal skills", and "Vendored skills" below for what those
-patterns are, and "Skills in this repo" at the end for the full list.
+(`jira`, plus its many thin per-action wrapper skills), several
+standalone skills, one internal toolset (`telegram`, excluded from
+default installs), and one vendored skill (`strategic-compact`,
+imported from a third-party repo); it's meant to grow with unrelated
+toolsets (e.g. a company back-office toolset) and further
+standalone/vendored skills alike, each following its own pattern's
+convention -- see "Layout and convention", "Standalone skills",
+"Internal skills", and "Vendored skills" below for what those patterns
+are, and "Skills in this repo" at the end for the full, current list.
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions), following the open
@@ -86,8 +86,9 @@ git clone git@github.com:arfar-x/agent-skills.git
 
 Then either symlink/copy the skill directories your runtime expects
 (`.claude/skills/<name>/` for Claude Code, `skills.external_dirs` in
-Hermes' config, a zip upload for claude.ai), or use `jira`/`mood`/`prd`/
-`trd`/`adr`/`rfc` straight from the checkout. A symlinked or `external_dirs`-registered
+Hermes' config, a zip upload for claude.ai), or use any skill directly
+from the checkout (see "Skills in this repo" below for the current
+names). A symlinked or `external_dirs`-registered
 skill reflects the latest commit the moment you `git pull`; a copied
 directory (`cp -r`, a claude.ai zip) needs to be manually redone after
 each pull. See "Frontmatter compatibility" below for why the exact same
@@ -245,10 +246,9 @@ skill** is a single `SKILL.md` file with no sibling directory to shell
 out to -- no `lib/`, `tools/`, `scripts/`, `tests/`, `requirements.txt`,
 or `README.md` of its own. It's pure instructions: markdown the agent
 reads and follows, with no Python, no CLI, and no external API call
-behind it. `mood` (tone/style switch), `prd` (PRD drafting), `trd` (TRD
-drafting), `adr` (ADR drafting), and `rfc` (RFC drafting) are the five so
-far -- see their own `SKILL.md`s for the full reference, or "Skills in
-this repo" below for a one-line description of each.
+behind it. See "Skills in this repo" below for the current list, each
+with a one-line description, and each one's own `SKILL.md` for the full
+reference.
 
 Standalone skills need none of "Installation"'s Python/env-var steps --
 installing the skill is the whole setup.
@@ -410,5 +410,6 @@ instead (linked below), not repeated here.
 | [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |
 | [`adr`](skills/adr) | Standalone | Records a design/architecture decision, its context, alternatives, and consequences under `docs/ADRs/` |
 | [`rfc`](skills/rfc) | Standalone | Turns a proposed technical/architecture change into an RFC -- problem, design, risks, migration plan -- under `docs/RFCs/`, for team review |
+| [`agents-md`](skills/agents-md) | Standalone | Writes/updates a token-conscious `AGENTS.md` (root + nested per-subproject files for a monorepo) that links to existing docs instead of duplicating them |
 | [`telegram`](skills/telegram) | Toolset, **internal** | Reads/sends personal Telegram messages via Telethon -- see [`skills/telegram/README.md`](skills/telegram/README.md) for its disclaimer and security model before installing |
 | [`strategic-compact`](skills/strategic-compact) | **Vendored**, from [affaan-m/ECC](https://github.com/affaan-m/ECC) | Suggests manual `/compact` at logical task-phase boundaries instead of relying on arbitrary auto-compaction -- see "Vendored skills" below for provenance and how it's kept in sync |
