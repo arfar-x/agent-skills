@@ -132,6 +132,74 @@ agent can never self-approve a send" guarantee `skills/telegram/`
 is built around. Reads, `mark_read`, `download_media`, `whoami`,
 `allowed_chats`, and `logout` work normally either way.
 
+### Multi-user credentials and inbound auth
+
+Everything above describes a single identity: whatever `JIRA_*`/`TELEGRAM_*`
+vars are set in this server's own process environment is what every caller
+uses, always. That's exactly right for personal/direct use (one person,
+one process), but it means a multi-user client sharing one running
+`mcp-server` -- LibreChat, say -- would have every user's Jira actions land
+under the same account, with no way to tell them apart.
+
+Two independent, both-opt-in pieces close that gap without changing
+anything for personal use.
+
+**Per-request credential override.** A caller can supply
+`X-Agent-Skills-Env-<VAR>` as an HTTP header (e.g.
+`X-Agent-Skills-Env-JIRA_PASSWORD`) to override one of a toolset's own
+declared env vars for that single call. Two things keep this safe:
+
+- Only vars the toolset itself declares in its `required_environment_variables`
+  frontmatter are ever accepted this way -- a header can't inject an
+  arbitrary env var name into the subprocess, and a toolset's subprocess
+  never receives another toolset's vars either (Jira never sees
+  `TELEGRAM_*`, and vice versa).
+- These headers are **ignored by default**. A caller-supplied header is
+  self-asserted -- on an unauthenticated transport, anyone who can reach
+  the port could claim to be anyone. Pass `--trust-request-credentials`
+  (or set `MCP_TRUST_REQUEST_CREDENTIALS=1`) to start honoring them, and
+  do that only once something downstream actually verifies who's calling
+  -- see the next part. Setting it without a configured provider prints a
+  loud warning at startup rather than silently accepting the
+  misconfiguration.
+
+**Inbound auth.** `--transport http`/`sse`/`streamable-http` can require
+callers to authenticate, using [fastmcp](https://gofastmcp.com)'s own
+`AuthProvider` support (`lib/auth.py`). Currently available:
+
+- **Keycloak / any OIDC provider issuing JWTs** -- set
+  `MCP_AUTH_KEYCLOAK_REALM_URL` (e.g.
+  `https://keycloak.example.com/realms/myrealm`) and this server validates
+  bearer tokens against that realm's own JWKS endpoint. Optionally set
+  `MCP_AUTH_KEYCLOAK_AUDIENCE` to also check the token's `aud` claim
+  (recommended once this is more than local testing). Providing the realm
+  URL *is* the opt-in -- there's no separate flag to also flip.
+
+  This uses `fastmcp`'s `JWTVerifier` directly, not its `KeycloakAuthProvider`
+  -- that one assumes an MCP client does an interactive browser OAuth flow
+  against Keycloak *through* this server (Dynamic Client Registration),
+  which needs this server's own public URL for OAuth metadata. That's the
+  wrong shape for an internal-network server reached by one client that
+  already holds its own token (e.g. from its own separate login flow) and
+  just needs it validated.
+- No provider configured (the default) -- `stdio` is unaffected either
+  way (no network boundary to protect); HTTP/SSE/streamable-HTTP accept
+  any request, same as before this feature existed.
+
+With both pieces on, `mcp-server` can hand a Jira request Alice's
+credential and a different request Bob's, instead of every caller hitting
+Jira as whatever this server's own environment says -- without either
+toolset's own code knowing or caring where its credential came from.
+
+**A var marked `sensitive: true` in a toolset's `required_environment_variables`
+frontmatter never appears in error output.** `argv`/`stdout`/`stderr` in
+any error this server returns are checked against every sensitive var's
+resolved value and redacted before the result reaches a caller (and
+therefore before it reaches an LLM's context) -- see `skills/jira/SKILL.md`'s
+`JIRA_USERNAME`/`JIRA_PASSWORD`/`JIRA_PAT` entries for the convention. A
+non-sensitive var (`JIRA_BASE_URL`, say) is left untouched so debugging
+output isn't needlessly harder to read.
+
 ### Running in a container
 
 `Dockerfile` (in this directory) builds an image that runs the server over
@@ -158,10 +226,12 @@ above). Credentials still come from environment variables only, exactly as
 running the server directly -- pass them with `-e` / `--env-file`, or via
 whatever your orchestrator's secret mechanism is.
 
-The image binds `0.0.0.0:8321` with no authentication of any kind -- the MCP
-HTTP transport has none built in. Never publish this container's port to a
-public network; put it on a private/internal network reachable only by the
-MCP client that needs it (Dify, LibreChat, ...).
+The image binds `0.0.0.0:8321` with no authentication unless you configure
+one -- see "Multi-user credentials and inbound auth" below. Never publish
+this container's port to a public network regardless; put it on a
+private/internal network reachable only by the MCP client that needs it
+(Dify, LibreChat, ...) even once auth is configured -- that's defense in
+depth, not a substitute for network isolation.
 
 ## Tool naming and shape
 
@@ -211,6 +281,12 @@ Fixed tools that exist regardless of which toolsets are installed:
   starting with the literal word "optional" for a genuinely optional
   var, anything else meaning required. A future `SKILL.md` that doesn't
   follow that convention could be misclassified.
+- **`sensitive: true` (redaction) is opt-in per var, trusted the same way.**
+  A toolset that declares a genuinely secret var without marking it
+  `sensitive: true` gets no redaction for that var's value in error output
+  -- there's no way to infer sensitivity from a var's name alone, so this
+  is deliberately convention over inference, same tradeoff as
+  `required_for` above.
 - **Tool-schema generation relies on `argparse`'s private attributes**
   (`_subparsers`, `_choices_actions`, `_StoreTrueAction`, `_AppendAction`,
   ...). Stable across Python's stdlib for well over a decade, but not a
