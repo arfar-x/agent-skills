@@ -10,15 +10,18 @@ description: >-
   already exist in subdirectories and inspects each for staleness or
   gaps -- without mechanically listing every one in the root's Project
   map, since agents already find the nearest one by directory proximity
-  -- and asks the user before enhancing any of them or creating a new
-  one. A nested AGENTS.md this skill writes stays scoped to its own
+  -- and asks the user before enhancing any of them. For a monorepo,
+  asks before even scanning the tree for subdirectories that would
+  benefit from their own nested AGENTS.md (that scan can be slow on a
+  large repo), then asks again before creating any of the files it
+  finds. A nested AGENTS.md this skill writes stays scoped to its own
   subtree -- it never restates the root file's overview or structure.
   Never invents a command, architecture detail, or convention the
   project doesn't actually have -- asks instead. Use when the user asks
   to write/create/generate/update an AGENTS.md (or CLAUDE.md) file,
   onboard a coding agent onto a codebase, or document build/test/
   architecture/style conventions for agents working in a repo.
-version: 1.2.0
+version: 1.3.0
 metadata:
   category: software-development
   doc_type: agents-md
@@ -224,23 +227,38 @@ describes.
    - If a discovered nested file's own scope is ambiguous (it's unclear
      which directories it's meant to govern, or two nested files
      appear to overlap), ask the user rather than guessing a boundary.
-4. **Monorepo -- surface where nested files would help, then ask before
-   writing any.** When "Inferring the project's structure" above turns
-   up genuinely independent subprojects (their own build/test/deploy,
-   own language or stack, or already their own `README.md`) that aren't
-   already covered by a file discovered in step 3, compile the
-   candidates with a one-line reason each (e.g. "own `package.json` +
-   test script, no `AGENTS.md` yet") -- see "The graph, not a monolith"
-   below for the shape -- and present the list to the user before
-   creating any of them. Per agents.md's own stated precedence rule,
-   "the closest AGENTS.md file to the file being edited takes
-   precedence," so each subproject gets its own file rather than one
-   giant root file trying to cover all of them. Don't fragment a
-   single-stack project into nested files just to force the pattern --
-   a plain single-language project gets one root `AGENTS.md`, full
-   stop. The confirm-before-creating rule applies to every proposed
-   nested file, not just the ambiguous ones -- an unambiguous signal is
-   a reason to propose it confidently, not a reason to skip asking.
+4. **Monorepo -- ask before scanning for nested-file candidates, then ask
+   again before writing any.** Compiling the candidate list means
+   checking each subdirectory in "Inferring the project's structure"
+   above against its own manifest/lockfile, build/test setup, and CI --
+   on a large monorepo that's a genuinely time-consuming pass, not a
+   quick glance. Don't launch it as a silent part of the current task:
+   tell the user you could scan the tree for subdirectories that look
+   like they'd benefit from their own `AGENTS.md`, note that it may take
+   a while on a large repo, and ask whether they want you to run it now,
+   before spending the time. This is a separate ask from the
+   confirm-before-creating step below -- offering to look is its own
+   opt-in, not a foregone conclusion just because a monorepo was
+   detected.
+   - If the user declines or doesn't ask for this, stop here -- write
+     only the root (and any file explicitly requested), and don't run
+     the scan uninvited.
+   - If they say yes, scan for genuinely independent subprojects (their
+     own build/test/deploy, own language or stack, or already their own
+     `README.md`) that aren't already covered by a file discovered in
+     step 3, and compile the candidates with a one-line reason each
+     (e.g. "own `package.json` + test script, no `AGENTS.md` yet") --
+     see "The graph, not a monolith" below for the shape. Present the
+     list, then ask again before creating any of them -- Per agents.md's
+     own stated precedence rule, "the closest AGENTS.md file to the file
+     being edited takes precedence," so each subproject gets its own
+     file rather than one giant root file trying to cover all of them.
+     Don't fragment a single-stack project into nested files just to
+     force the pattern -- a plain single-language project gets one root
+     `AGENTS.md`, full stop. This second confirm-before-creating step
+     applies to every proposed nested file, not just the ambiguous ones
+     -- an unambiguous signal is a reason to propose it confidently, not
+     a reason to skip asking.
 
 ## The graph, not a monolith
 
