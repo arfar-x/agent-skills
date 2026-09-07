@@ -16,12 +16,15 @@ description: >-
   large repo), then asks again before creating any of the files it
   finds. A nested AGENTS.md this skill writes stays scoped to its own
   subtree -- it never restates the root file's overview or structure.
-  Never invents a command, architecture detail, or convention the
+  Only ever suggests a tool-specific symlink to it (CLAUDE.md for Claude
+  Code, or another agent tool's own convention) and asks before creating
+  one -- never assumes the project wants every tool's symlink. Never
+  invents a command, architecture detail, or convention the
   project doesn't actually have -- asks instead. Use when the user asks
   to write/create/generate/update an AGENTS.md (or CLAUDE.md) file,
   onboard a coding agent onto a codebase, or document build/test/
   architecture/style conventions for agents working in a repo.
-version: 1.3.0
+version: 1.4.0
 metadata:
   category: software-development
   doc_type: agents-md
@@ -43,6 +46,7 @@ existing (or brand-new) codebase, by writing the one file most
 coding-agent tools read first: [AGENTS.md](https://agents.md), an open,
 tool-agnostic convention now read by 20+ agent tools (Codex, Cursor,
 Copilot, Aider, Devin, Zed, Warp, Claude Code via a `CLAUDE.md` symlink,
+and others via their own tool-specific filename symlinked the same way,
 ...). In the format's own words: "README.md files are for humans...
 AGENTS.md complements this by containing the extra, sometimes detailed
 context coding agents need: build steps, tests, and conventions." There
@@ -173,20 +177,44 @@ describes.
      from a blank template when one already exists; that throws away
      hand-written context (rationale, exceptions, links) this skill has
      no way to reconstruct on its own.
-   - If `CLAUDE.md` already exists at that root as a **symlink** to
-     `AGENTS.md` (the convention this very repo uses -- confirm with
-     e.g. `ls -la`, don't assume), leave the symlink untouched and edit
-     the `AGENTS.md` it points to.
-   - If `CLAUDE.md` exists there as a **real file** (not a symlink) and
-     `AGENTS.md` doesn't, ask the user how to reconcile the two before
-     writing anything -- e.g. adopt its content into a new `AGENTS.md`
-     and turn `CLAUDE.md` into a symlink to it, or leave `CLAUDE.md` as
-     the Claude-specific file and create `AGENTS.md` alongside it. Don't
-     silently overwrite or symlink over an existing real file.
-   - If neither exists, this is a **fresh create**: write `AGENTS.md` at
-     the root. Don't create a `CLAUDE.md` symlink unless the user asks
-     for one or says they use Claude Code/CLAUDE.md specifically --
-     mention the option rather than assuming it.
+   - **Agent-specific filename symlinks -- suggest, never create
+     blindly.** Several coding-agent tools read their own conventional
+     filename instead of, or before falling back to, `AGENTS.md`
+     directly -- `CLAUDE.md` for Claude Code (the convention this very
+     repo uses), and other tools have their own (e.g.
+     `.github/copilot-instructions.md` for GitHub Copilot, `.cursor/rules`
+     for Cursor, `.windsurfrules` for Windsurf, `GEMINI.md` for Gemini
+     CLI). Treat any such list, including this one, as illustrative and
+     possibly stale, not an exhaustive or guaranteed-current catalog --
+     verify a tool's actual current convention rather than assuming a
+     remembered filename is still right. The agents.md convention's own
+     answer to the duplication this creates is the symlink pattern: keep
+     `AGENTS.md` as the single source of truth and symlink the
+     tool-specific filename to it, so there's one file to maintain
+     instead of several drifting copies.
+     - If one of these already exists at the target root **as a
+       symlink** to `AGENTS.md` (confirm with e.g. `ls -la`, don't
+       assume), leave the symlink untouched and edit the `AGENTS.md` it
+       points to.
+     - If one exists **as a real file** (not a symlink) and `AGENTS.md`
+       doesn't, ask the user how to reconcile the two before writing
+       anything -- e.g. adopt its content into a new `AGENTS.md` and turn
+       the tool-specific file into a symlink to it, or leave that file as
+       the tool-specific one and create `AGENTS.md` alongside it. Don't
+       silently overwrite or symlink over an existing real file.
+     - **Never create a new symlink unless the user asks for one, or
+       says they use that specific tool.** Once `AGENTS.md` itself is
+       written or updated, it's fine to mention which of these symlinks
+       could make sense -- especially if the project already shows other
+       signs of using that tool (a `.cursor/` directory, a Copilot-
+       specific CI step) -- but suggest it and ask, don't create it
+       unprompted. Not every project wants every tool's symlink
+       cluttering its root, and a user working with only one agent tool
+       has no use for the rest.
+   - If neither `AGENTS.md` nor any agent-specific file exists, this is
+     a **fresh create**: write `AGENTS.md` at the root, and apply the
+     symlink rule above -- mention the option, don't create one
+     unprompted.
 3. **Discover existing nested files -- inspect them, but don't
    mechanically list or rewrite them.** From the whole-tree search in
    "Input" above, you already have every `AGENTS.md` that exists
