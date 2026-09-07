@@ -5,16 +5,19 @@ description: >-
   monorepo, a root AGENTS.md plus nested per-subproject AGENTS.md files)
   -- the open, tool-agnostic convention (agents.md) that gives a coding
   agent the build/test/architecture/style context a README doesn't.
-  Structures the result as a lean root file linking out to nested
-  AGENTS.md files and to already-existing docs (README/ARCHITECTURE/
-  CONTRIBUTING) instead of duplicating them, so an agent only pays token
-  cost for the part of the project it's actually touching. Never invents
-  a command, architecture detail, or convention the project doesn't
-  actually have -- asks instead. Use when the user asks to write/create/
-  generate/update an AGENTS.md (or CLAUDE.md) file, onboard a coding
-  agent onto a codebase, or document build/test/architecture/style
-  conventions for agents working in a repo.
-version: 1.0.0
+  Searches the whole project tree for AGENTS.md files that already exist
+  in subdirectories, folds each into the root file's Project map graph,
+  and reasons about the context scope each one already governs before
+  proposing any new nested file. Structures the result as a lean root
+  file linking out to nested AGENTS.md files and to already-existing docs
+  (README/ARCHITECTURE/CONTRIBUTING) instead of duplicating them, so an
+  agent only pays token cost for the part of the project it's actually
+  touching. Never invents a command, architecture detail, or convention
+  the project doesn't actually have -- asks instead. Use when the user
+  asks to write/create/generate/update an AGENTS.md (or CLAUDE.md) file,
+  onboard a coding agent onto a codebase, or document build/test/
+  architecture/style conventions for agents working in a repo.
+version: 1.1.0
 metadata:
   category: software-development
   doc_type: agents-md
@@ -78,9 +81,15 @@ Before drafting, actually explore the target project: package manifests
 and lockfiles (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`,
 ...), a `Makefile`/`justfile`, CI config (`.github/workflows/`, etc.),
 existing `README.md`/`CONTRIBUTING.md`/`ARCHITECTURE.md`/`docs/`, linter/
-formatter config, and any existing `AGENTS.md`/`CLAUDE.md` (root or
-nested). Three things are worth asking about rather than guessing when
-they're genuinely unclear, not just inconvenient to verify:
+formatter config, and any existing `AGENTS.md`/`CLAUDE.md`. For the
+latter, search the **whole project tree**, not just the target root and
+its immediate children -- e.g. `git ls-files '*AGENTS.md' '*CLAUDE.md'`
+(or `find . -iname 'AGENTS.md' -o -iname 'CLAUDE.md'` outside a git repo)
+-- since a nested file can already exist several directories deep, in a
+subdirectory the user never mentioned. See "Discover existing nested
+files" under "Where to save it" for what to do with what you find. Three
+things are worth asking about rather than guessing when they're
+genuinely unclear, not just inconvenient to verify:
 
 - **Setup/build/test commands** -- the real build/setup and test
   commands are what make an AGENTS.md worth reading at all. If you
@@ -134,12 +143,43 @@ describes.
      the root. Don't create a `CLAUDE.md` symlink unless the user asks
      for one or says they use Claude Code/CLAUDE.md specifically --
      mention the option rather than assuming it.
-3. **Monorepo -- propose a root + nested split** when the project
+3. **Discover existing nested files and fold them into the graph before
+   proposing anything new.** From the whole-tree search in "Input"
+   above, you already have every `AGENTS.md` that exists anywhere under
+   the target root, at any depth -- not just ones this skill wrote.
+   Each one already defines a **context scope**: per agents.md's
+   precedence rule ("the closest AGENTS.md file to the file being
+   edited takes precedence"), a nested file's instructions govern every
+   file at or below its own directory, up to the next nested file
+   that's closer to the file being edited (or up to the root file, if
+   nothing closer exists). For each discovered nested file:
+   - **Read it, but never inline, duplicate, or rewrite its content
+     into the root file or another nested file.** Reading it is only to
+     produce an accurate one-line summary for the Project map and to
+     sanity-check it still matches its directory -- if it looks stale
+     (describes a command or structure that no longer exists), flag
+     that to the user rather than silently rewriting someone else's
+     file.
+   - **Add or refresh its entry in the root file's Project map** so the
+     graph reflects every scope that actually exists, not only the ones
+     this run of the skill happens to create.
+   - **Treat its directory as an already-claimed scope** when deciding
+     whether a *new* nested file is warranted elsewhere in step 4 below
+     -- don't propose a new nested file for a subdirectory that a
+     discovered file already covers, unless that subdirectory is itself
+     an independent subproject deep enough to deserve its own, more
+     specific file (closest-file-wins still applies among nested
+     files, not just between root and nested).
+   - If a discovered nested file's own scope is ambiguous (it's unclear
+     which directories it's meant to govern, or two nested files
+     appear to overlap), ask the user rather than guessing a boundary.
+4. **Monorepo -- propose a root + nested split** when the project
    genuinely has independent subprojects (their own build/test/deploy,
-   own language or stack, or already their own `README.md`) -- see "The
-   graph, not a monolith" below for the shape. Per agents.md's own
-   stated precedence rule, "the closest AGENTS.md file to the file
-   being edited takes precedence," so each subproject gets its own file
+   own language or stack, or already their own `README.md`) that aren't
+   already covered by a file discovered in step 3 -- see "The graph, not
+   a monolith" below for the shape. Per agents.md's own stated
+   precedence rule, "the closest AGENTS.md file to the file being
+   edited takes precedence," so each subproject gets its own file
    rather than one giant root file trying to cover all of them. Don't
    fragment a single-stack project into nested files just to force the
    pattern -- a plain single-language project gets one root `AGENTS.md`,
@@ -176,6 +216,13 @@ requires**, not one document to make exhaustive:
   case" -- exactly the same judgment call this repo's own root
   `AGENTS.md` makes when it ends with "Toolset-specific conventions...
   belong in that toolset's own `skills/<toolset>/README.md`, not here."
+- **The graph includes files this skill didn't write.** A project can
+  already have nested `AGENTS.md` files -- hand-written, or produced by
+  another tool or a previous run -- before this skill ever touches it.
+  Discover them (see "Discover existing nested files" under "Where to
+  save it") and link to them from the root's Project map exactly as you
+  would one you just created. Never assume the graph is empty, or that
+  it only contains what you're about to write.
 - **This repo you're reading this skill from is itself the worked
   example** -- its root `AGENTS.md` covers repo-wide layout and
   conventions and links out to `mcp-server/README.md`, `README.md`'s
@@ -230,8 +277,10 @@ Project map plus whatever is genuinely repo-wide.
 - **Project map** (the graph itself, for a monorepo root or any project
   with docs worth pointing to) -- one line per subproject or major doc:
   what it is, and the relative path to its own `AGENTS.md`/`README.md`.
-  This section **is** the cross-referencing structure, not a summary of
-  it -- keep each line to a pointer, not a paragraph.
+  Include every nested `AGENTS.md` discovered in the whole-tree search
+  (see "Discover existing nested files" above), not only the ones this
+  run creates. This section **is** the cross-referencing structure, not
+  a summary of it -- keep each line to a pointer, not a paragraph.
 
 Setup commands, Testing instructions, Architecture, and Project map
 (when a monorepo split applies) are the sections most worth getting
