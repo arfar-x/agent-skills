@@ -11,6 +11,12 @@ already knows the codebase. It complements, not replaces:
   agent) must follow when adding or changing a skill.
 - [`mcp-server/README.md`](mcp-server/README.md) -- operational detail
   for the MCP server specifically.
+- [`AUTHENTICATION.md`](AUTHENTICATION.md) -- the full credential and
+  auth story: a toolset's own env-based credential, `mcp-server`'s
+  per-request credential resolution for multi-user deployments, and
+  inbound auth. A *different* concern from this document's own
+  "Security model" section below (confirm-gating), covered there in
+  full because it's substantial enough to deserve its own document.
 
 ## Purpose
 
@@ -114,6 +120,14 @@ the failure mode the gate exists to catch:
 The MCP server does not add, remove, or weaken any of this -- a gated
 tool called over MCP behaves identically to the same tool called over a
 shell, because it's the same code, run the same way.
+
+**This is a different question from *which identity* a gated write
+executes as.** Confirm-gating decides whether a write happens at all;
+it says nothing about who it happens as, which is genuinely orthogonal
+-- both apply independently to the same write. See
+[`AUTHENTICATION.md`](AUTHENTICATION.md) for that: a toolset's own
+env-based credential for direct use, and `mcp-server`'s per-request
+credential resolution plus inbound auth for a multi-user deployment.
 
 ## Entities reference
 

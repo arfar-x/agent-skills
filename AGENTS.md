@@ -146,6 +146,33 @@ in the top-level `README.md`. See that file's "Agent Skills format"
 section for the open format this repo's `SKILL.md`s follow, and where
 this repo's frontmatter extends it.
 
+## Authentication
+
+Two independent layers, both real, don't conflate them:
+
+1. **A toolset's own credential** -- e.g. `skills/jira/lib/auth.py`'s
+   `load_credential()` returns a `Credential` (`BasicCredential` from
+   `JIRA_USERNAME`/`JIRA_PASSWORD`, or `BearerCredential` from `JIRA_PAT`
+   -- a Data Center Personal Access Token, an API key, or an OAuth token
+   all share this one wire format). This is the *only* layer that
+   exists for direct/personal use (Claude Code, Hermes, claude.ai) --
+   set the env vars, the toolset reads them, done.
+2. **`mcp-server`'s per-request resolution**, for a multi-user
+   deployment sharing one running server: a scoped environment per
+   subprocess call (never another toolset's credentials), an opt-in
+   per-request override (`X-Agent-Skills-Env-<VAR>`, trusted only
+   behind `--trust-request-credentials`), and opt-in inbound auth
+   (`MCP_AUTH_KEYCLOAK_REALM_URL`) to verify who's calling before that
+   trust means anything. Off by default; a toolset's own code never
+   knows or needs to know this layer exists.
+
+**[`AUTHENTICATION.md`](AUTHENTICATION.md)** is the full explanation of
+both -- read it before changing anything in `mcp-server/lib/credentials.py`,
+`mcp-server/lib/auth.py`, or any toolset's `lib/auth.py`. The
+`sensitive: true` and env-vars-only rules below are this layer's
+concrete, checkable conventions; the document above is the reasoning
+and the flow diagrams behind them.
+
 ## Conventions
 
 These apply repo-wide, to every toolset, not just Jira:
