@@ -1,8 +1,19 @@
 """Authentication and configuration handling for the Jira Assistant skill.
 
 Credentials are always sourced from environment variables. No credentials
-may be hard-coded or embedded in source. Only HTTP Basic auth
-(username + password) is supported.
+may be hard-coded or embedded in source. Two auth modes are supported:
+HTTP Basic (username + password) and a single bearer token (a Jira Data
+Center Personal Access Token, or an OAuth access token if one is ever
+supplied this way) -- see `load_credential()`.
+
+Credential material (`load_credential()`, returning a
+`lib.credentials.Credential`) is deliberately kept separate from
+`JiraConfig`, which holds only *behavioral* settings (timeouts, retries,
+which project to default to, ...). `JiraClient` accepts whichever
+`Credential` it's handed and never inspects how it was obtained --
+whether that's this process's own environment (personal/direct use) or
+a credential resolved per-request by `mcp-server` on behalf of one
+specific caller behind a multi-user chat client.
 """
 
 from __future__ import annotations
@@ -11,6 +22,8 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Mapping, Optional
+
+from .credentials import BasicCredential, BearerCredential, Credential
 
 logger = logging.getLogger("jira_skill.auth")
 
@@ -23,10 +36,12 @@ class ConfigurationError(RuntimeError):
 class JiraConfig:
     """Validated runtime configuration for the Jira client.
 
+    Deliberately holds no credential material -- see `load_credential()`
+    for that. Everything here is a behavioral setting, independent of
+    which auth mode is in use.
+
     Attributes:
         base_url: Root URL of the Jira instance, e.g. ``https://jira.example.com``.
-        username: Basic-auth username.
-        password: Basic-auth password.
         timeout_seconds: Per-request network timeout.
         max_retries: Maximum retry attempts for idempotent/rate-limited requests.
         verify_ssl: Whether to verify TLS certificates (disable only for
@@ -48,18 +63,12 @@ class JiraConfig:
     """
 
     base_url: str
-    username: str
-    password: str
     timeout_seconds: float = 30.0
     max_retries: int = 3
     verify_ssl: bool = True
     auto_confirm_writes: bool = False
     default_project: Optional[str] = None
     deployment_type: Optional[str] = None
-
-    def auth_summary(self) -> str:
-        """Return a redacted, human-readable description of the auth mode."""
-        return f"Basic auth (user={self.username})"
 
 
 def _env(source: Mapping[str, str], name: str, default: Optional[str] = None) -> Optional[str]:
@@ -96,8 +105,54 @@ def _env_int(source: Mapping[str, str], name: str, default: int) -> int:
         raise ConfigurationError(f"Environment variable {name}={raw!r} is not a valid integer") from exc
 
 
+def load_credential(env: Optional[Mapping[str, str]] = None) -> Credential:
+    """Load and validate Jira auth credentials from environment variables.
+
+    Two modes, checked in this order:
+
+    1. ``JIRA_PAT`` set -- a bearer token (a Jira Data Center Personal
+       Access Token, or any other single-token credential the deployment
+       hands this skill the same way). Takes precedence over Basic auth
+       if both happen to be set, since a PAT is the more specific choice
+       when someone has gone to the trouble of minting one.
+    2. ``JIRA_USERNAME`` + ``JIRA_PASSWORD`` both set -- HTTP Basic auth.
+
+    Args:
+        env: Optional explicit mapping to read from instead of the
+            process environment (primarily for testing, and this is
+            also the seam `mcp-server` uses to hand this skill a
+            per-request credential instead of its own process env).
+
+    Raises:
+        ConfigurationError: If neither mode is fully configured. The
+            message names both options so operators aren't left
+            guessing which env vars to set.
+    """
+    source: Mapping[str, str] = env if env is not None else os.environ
+
+    pat = _env(source, "JIRA_PAT")
+    if pat:
+        return BearerCredential(token=pat)
+
+    username = _env(source, "JIRA_USERNAME")
+    password = _env(source, "JIRA_PASSWORD")
+    if username and password:
+        return BasicCredential(username=username, password=password)
+
+    missing = [name for name, value in (("JIRA_USERNAME", username), ("JIRA_PASSWORD", password)) if not value]
+    raise ConfigurationError(
+        "No Jira credential configured. Set either JIRA_PAT (a Personal "
+        "Access Token or other bearer token), or both JIRA_USERNAME and "
+        "JIRA_PASSWORD for Basic auth. Currently missing: "
+        f"{', '.join(missing) if missing else 'JIRA_USERNAME, JIRA_PASSWORD'} "
+        "(and JIRA_PAT is not set)."
+    )
+
+
 def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
-    """Load and validate Jira configuration from environment variables.
+    """Load and validate Jira behavioral configuration from environment
+    variables. Does not touch credential material -- see
+    `load_credential()` for that.
 
     Args:
         env: Optional explicit mapping to read from instead of the
@@ -110,7 +165,6 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
 
     Environment variables:
         JIRA_BASE_URL (required): Root URL of the Jira instance.
-        JIRA_USERNAME / JIRA_PASSWORD (required): Basic-auth credentials.
         JIRA_TIMEOUT_SECONDS (optional, default 30).
         JIRA_MAX_RETRIES (optional, default 3).
         JIRA_VERIFY_SSL (optional, default true).
@@ -133,18 +187,6 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
             f"JIRA_BASE_URL={base_url!r} must start with http:// or https://"
         )
 
-    username = _env(source, "JIRA_USERNAME")
-    password = _env(source, "JIRA_PASSWORD")
-    missing = [
-        name
-        for name, value in (("JIRA_USERNAME", username), ("JIRA_PASSWORD", password))
-        if not value
-    ]
-    if missing:
-        raise ConfigurationError(
-            f"The following environment variables are missing: {', '.join(missing)}"
-        )
-
     deployment_type_raw = _env(source, "JIRA_DEPLOYMENT_TYPE")
     deployment_type = None
     if deployment_type_raw:
@@ -157,8 +199,6 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
 
     config = JiraConfig(
         base_url=base_url,
-        username=username,
-        password=password,
         timeout_seconds=_env_float(source, "JIRA_TIMEOUT_SECONDS", 30.0),
         max_retries=_env_int(source, "JIRA_MAX_RETRIES", 3),
         verify_ssl=_env_bool(source, "JIRA_VERIFY_SSL", True),
@@ -166,10 +206,5 @@ def load_config(env: Optional[Mapping[str, str]] = None) -> JiraConfig:
         default_project=_env(source, "JIRA_DEFAULT_PROJECT"),
         deployment_type=deployment_type,
     )
-    logger.info(
-        "Loaded Jira configuration: base_url=%s auth=%s auto_confirm_writes=%s",
-        config.base_url,
-        config.auth_summary(),
-        config.auto_confirm_writes,
-    )
+    logger.info("Loaded Jira configuration: base_url=%s auto_confirm_writes=%s", config.base_url, config.auto_confirm_writes)
     return config

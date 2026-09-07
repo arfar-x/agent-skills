@@ -51,6 +51,7 @@ _SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SKILL_ROOT not in sys.path:
     sys.path.insert(0, _SKILL_ROOT)
 
+from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     blockers,
     create_issue,
@@ -404,7 +405,23 @@ def dispatch(args: argparse.Namespace):
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    result = dispatch(args)
+    # Every actual tool body already runs inside tools/_common.py's
+    # run_tool(), which catches everything (including ConfigurationError,
+    # e.g. from lib.auth.load_credential()) and returns a clean
+    # {"error": {...}} dict -- this call practically never sees an
+    # exception in normal operation. This try/except exists for whatever
+    # is NOT inside a tool's own run_tool()-wrapped closure -- e.g.
+    # dispatch()'s final `raise AssertionError("Unhandled tool: ...")`,
+    # marked unreachable but still worth catching rather than trusting --
+    # so this script's documented contract (see module docstring: one
+    # JSON document, always, never a raw traceback) holds even outside
+    # run_tool()'s coverage, not just within it.
+    try:
+        result = dispatch(args)
+    except ConfigurationError as exc:
+        result = {"error": {"type": "configuration_error", "message": str(exc)}}
+    except Exception as exc:  # noqa: BLE001 -- last-resort safety net, see comment above
+        result = {"error": {"type": "internal_error", "message": f"{type(exc).__name__}: {exc}"}}
     print(json.dumps(result, indent=2, default=str))
     return 0
 

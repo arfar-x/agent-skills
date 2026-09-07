@@ -1,4 +1,33 @@
+from pathlib import Path
+
 from lib.registry import discover_skills, load_subcommands, resolve_include_internal
+
+
+def test_a_directory_with_no_skill_md_is_invisible_to_discovery(tmp_repo):
+    """The mechanism `skills/_shared/` relies on to never be discoverable
+    or installable as a skill (see its own README.md and AGENTS.md's
+    "Repo layout"): discover_skills() only considers a directory a skill
+    candidate if it has a SKILL.md at all -- a directory without one,
+    whatever its name, is never in the result, not specially excluded.
+    """
+    (tmp_repo / "skills" / "_shared").mkdir()
+    (tmp_repo / "skills" / "_shared" / "credentials").mkdir()
+    (tmp_repo / "skills" / "_shared" / "credentials" / "http.py").write_text("# not a skill\n")
+
+    manifests = discover_skills(tmp_repo, include_internal=False)
+    assert "_shared" not in {m.name for m in manifests}
+
+
+def test_the_real_shared_directory_has_no_skill_md():
+    """A direct check on this actual repo, not the synthetic tmp_repo --
+    the thing the test above proves is a general mechanism only matters
+    if skills/_shared/ itself never actually gets a SKILL.md. Catches an
+    accidental future addition (e.g. someone genuinely trying to make
+    _shared installable) failing loudly instead of silently starting to
+    work.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    assert not (repo_root / "skills" / "_shared" / "SKILL.md").exists()
 
 
 def test_jira_classified_as_toolset_root(tmp_repo):

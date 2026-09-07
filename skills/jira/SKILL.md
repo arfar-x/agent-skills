@@ -7,7 +7,7 @@ description: >-
   and reasoning over their JSON output, never by guessing or inventing
   ticket data. Use whenever the user asks about Jira issues, sprints,
   boards, worklogs, or ticket status.
-version: 1.1.0
+version: 1.2.0
 metadata:
   category: software-development
   hermes:
@@ -19,11 +19,17 @@ required_environment_variables:
     prompt: "Jira base URL (e.g. https://jira.mycompany.com)"
     required_for: all functionality
   - name: JIRA_USERNAME
-    prompt: "Jira username"
-    required_for: all functionality
+    prompt: "Jira username (for Basic auth -- skip if using JIRA_PAT instead)"
+    required_for: optional -- required together with JIRA_PASSWORD unless JIRA_PAT is set
+    sensitive: true
   - name: JIRA_PASSWORD
-    prompt: "Jira password"
-    required_for: all functionality
+    prompt: "Jira password (for Basic auth -- skip if using JIRA_PAT instead)"
+    required_for: optional -- required together with JIRA_USERNAME unless JIRA_PAT is set
+    sensitive: true
+  - name: JIRA_PAT
+    prompt: "Jira Personal Access Token or other bearer token (alternative to JIRA_USERNAME/JIRA_PASSWORD)"
+    required_for: optional -- alternative to JIRA_USERNAME/JIRA_PASSWORD; takes precedence if both are set
+    sensitive: true
   - name: JIRA_AUTO_CONFIRM_WRITES
     prompt: "Skip the confirm step before logging work / transitioning / creating / editing tickets? (true/false)"
     required_for: optional, defaults to false (asks before every write)

@@ -9,6 +9,7 @@ if SKILL_ROOT not in sys.path:
     sys.path.insert(0, SKILL_ROOT)
 
 from lib.auth import JiraConfig  # noqa: E402
+from lib.credentials import BasicCredential  # noqa: E402
 from lib.jira_client import JiraClient, reset_client  # noqa: E402
 
 
@@ -16,10 +17,13 @@ from lib.jira_client import JiraClient, reset_client  # noqa: E402
 def jira_config() -> JiraConfig:
     return JiraConfig(
         base_url="https://jira.example.com",
-        username="alice",
-        password="secret",
         max_retries=0,
     )
+
+
+@pytest.fixture
+def jira_credential() -> BasicCredential:
+    return BasicCredential(username="alice", password="secret")
 
 
 @pytest.fixture
@@ -28,8 +32,8 @@ def mock_session():
 
 
 @pytest.fixture
-def client(jira_config, mock_session) -> JiraClient:
-    return JiraClient(config=jira_config, session=mock_session)
+def client(jira_config, jira_credential, mock_session) -> JiraClient:
+    return JiraClient(config=jira_config, credential=jira_credential, session=mock_session)
 
 
 @pytest.fixture(autouse=True)
