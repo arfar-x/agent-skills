@@ -15,6 +15,7 @@ end-to-end against the real `fastmcp` package before writing this.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Callable
 
 from fastmcp.tools.base import Tool, ToolResult
@@ -36,7 +37,15 @@ class GeneratedTool(Tool):
     handler: Callable[[dict[str, Any]], dict[str, Any]] = Field(exclude=True)
 
     async def run(self, arguments: dict[str, Any]) -> ToolResult:
-        return ToolResult(content=self.handler(arguments))
+        # self.handler ends in subprocess.run(..., timeout=60) --
+        # genuinely blocking, not just synchronous-looking. Calling it
+        # inline here would block the whole event loop for up to 60s
+        # despite this method being `async def`: nothing yields control
+        # until that call returns, so one in-flight call would stall
+        # every other concurrent caller's tool calls on this same
+        # server. asyncio.to_thread offloads it to fastmcp's thread
+        # pool so other requests keep being served while this one runs.
+        return ToolResult(content=await asyncio.to_thread(self.handler, arguments))
 
 
 def _json_schema_property(param: ParamSpec) -> dict[str, Any]:
