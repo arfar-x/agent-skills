@@ -69,6 +69,34 @@ def test_build_tool_handler_calls_execute_subcommand(mock_execute):
     assert '"requires_confirmation":true' in result.content[0].text.replace(" ", "")
 
 
+def test_run_offloads_blocking_handler_so_concurrent_calls_overlap():
+    """GeneratedTool.run is `async def`, but its handler ends in a real
+    blocking subprocess.run() call -- being async alone doesn't stop
+    that from stalling the event loop. This proves two "slow" calls
+    actually run concurrently (wall time ~= one call's duration, not
+    the sum of both), not just that the code doesn't crash.
+    """
+    import time
+
+    manifest = SimpleNamespace(toolset="jira")
+    tool = build_tool("jira", manifest, SPEC)
+    tool.handler = lambda arguments: (time.sleep(0.2), {"ok": True})[1]
+
+    async def _run_two_concurrently():
+        start = time.monotonic()
+        await asyncio.gather(
+            tool.run({"issue_key": "PAY-1", "duration": "2h"}),
+            tool.run({"issue_key": "PAY-2", "duration": "2h"}),
+        )
+        return time.monotonic() - start
+
+    elapsed = asyncio.run(_run_two_concurrently())
+    # Sequential (blocking) execution would take >= 0.4s; overlapped
+    # execution takes ~0.2s. 0.35s leaves comfortable margin for CI
+    # scheduling jitter while still failing if this regresses to blocking.
+    assert elapsed < 0.35
+
+
 def test_register_toolset_tools_adds_one_tool_per_subcommand():
     fastmcp = pytest.importorskip("fastmcp")
     app = fastmcp.FastMCP(name="test")

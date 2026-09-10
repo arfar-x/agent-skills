@@ -168,8 +168,9 @@ ever hard-coded.**
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `JIRA_BASE_URL` | Yes | -- | Root URL of your Jira instance, e.g. `https://jira.mycompany.com` |
-| `JIRA_USERNAME` | Yes | -- | Basic-auth username |
-| `JIRA_PASSWORD` | Yes | -- | Basic-auth password |
+| `JIRA_USERNAME` | Yes\*\* | -- | Basic-auth username -- set together with `JIRA_PASSWORD`, or use `JIRA_PAT` instead |
+| `JIRA_PASSWORD` | Yes\*\* | -- | Basic-auth password -- set together with `JIRA_USERNAME`, or use `JIRA_PAT` instead |
+| `JIRA_PAT` | Yes\*\* | -- | A Personal Access Token or other bearer token, sent as `Authorization: Bearer <token>`. Alternative to `JIRA_USERNAME`/`JIRA_PASSWORD`; takes precedence if both are set. \*\*Exactly one auth mode must be configured: `JIRA_PAT`, or both `JIRA_USERNAME` and `JIRA_PASSWORD` |
 | `JIRA_TIMEOUT_SECONDS` | No | `30` | Per-request timeout |
 | `JIRA_MAX_RETRIES` | No | `3` | Retries for `429`/`5xx` responses |
 | `JIRA_VERIFY_SSL` | No | `true` | Disable only for trusted self-signed internal instances |
@@ -178,15 +179,32 @@ ever hard-coded.**
 | `JIRA_DEFAULT_PROJECT` | No | -- | Project key (e.g. `PAYKAN`) used by `triage` when `--project` isn't given; if unset, the model must resolve/pass a project itself |
 | `JIRA_DEPLOYMENT_TYPE` | No\* | -- | `cloud` or `server` (the latter also covers Data Center). \*Required the first time `create_issue`/`edit_issue` sets an assignee -- Jira Cloud identifies users by `accountId`, Server/Data Center by username, and the two shapes aren't interchangeable |
 
-Configuration is validated eagerly: `lib.auth.load_config()` raises a
-`ConfigurationError` with a specific, actionable message if required
-variables are missing (e.g. `JIRA_PASSWORD` not set). Wire this into
-whatever startup/health check your runtime supports so misconfiguration
-fails fast instead of at first tool call.
+Configuration is validated eagerly: `lib.auth.load_config()` (behavioral
+settings) and `lib.auth.load_credential()` (auth) each raise a
+`ConfigurationError` with a specific, actionable message if something's
+missing or inconsistent (e.g. neither `JIRA_PAT` nor a complete
+`JIRA_USERNAME`/`JIRA_PASSWORD` pair is set). `scripts/jira_tool.py`'s
+`main()` catches this and prints it as a clean `{"error": {...}}` JSON
+document rather than a raw traceback -- same as every other error this
+skill's tools produce. Wire the eager check into whatever startup/health
+check your runtime supports so misconfiguration fails fast instead of at
+first tool call.
 
-This skill only supports HTTP Basic auth (`JIRA_USERNAME` +
-`JIRA_PASSWORD`), which works against both Jira Cloud and self-hosted
-Jira Server/Data Center.
+This skill supports two auth modes, either of which works against both
+Jira Cloud and self-hosted Jira Server/Data Center:
+
+- **HTTP Basic** (`JIRA_USERNAME` + `JIRA_PASSWORD`) -- the original,
+  still-default mode.
+- **A single bearer token** (`JIRA_PAT`), sent as `Authorization: Bearer
+  <token>` -- a Jira Data Center Personal Access Token (8.14+), a Jira
+  Cloud API token used as a bearer token, or any other credential that
+  fits the same shape. Takes precedence over Basic auth if both happen
+  to be set.
+
+Credential handling itself (`Credential`/`BasicCredential`/
+`BearerCredential`) lives in `skills/_shared/credentials/http.py` and is
+symlinked into `lib/credentials.py` -- see that directory's own
+`README.md` for why, and for the Windows caveat on symlinked checkouts.
 
 ## Tools
 

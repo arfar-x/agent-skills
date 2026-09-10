@@ -7,7 +7,9 @@ error normalization, and (optional) response caching, so that behavior is
 consistent everywhere and never duplicated.
 
 Supports both Jira Cloud and self-hosted Jira Server / Data Center via an
-explicit ``base_url``, using HTTP Basic auth (username + password).
+explicit ``base_url``, using either HTTP Basic auth (username + password)
+or a single bearer token (a Personal Access Token, or any other
+single-token credential) -- see ``lib.auth.load_credential``.
 """
 
 from __future__ import annotations
@@ -22,7 +24,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .auth import JiraConfig, load_config
+from .auth import JiraConfig, load_config, load_credential
+from .credentials import Credential
 from .models import (
     Board,
     ChangelogEntry,
@@ -240,15 +243,19 @@ class JiraClient:
     def __init__(
         self,
         config: Optional[JiraConfig] = None,
+        credential: Optional[Credential] = None,
         session: Optional[requests.Session] = None,
         cache_ttl_seconds: Optional[float] = None,
     ):
         self.config = config or load_config()
+        self.credential = credential or load_credential()
         self.session = session or self._build_session()
         if cache_ttl_seconds is None:
             cache_ttl_seconds = float(os.environ.get("JIRA_CACHE_TTL_SECONDS", "0") or 0)
         self._cache = _TTLCache(cache_ttl_seconds)
-        logger.debug("JiraClient initialized against %s", self.config.base_url)
+        logger.debug(
+            "JiraClient initialized against %s using %r", self.config.base_url, self.credential
+        )
 
     # ------------------------------------------------------------------
     # Session / transport setup
@@ -269,7 +276,7 @@ class JiraClient:
         session.mount("https://", adapter)
         session.headers.update({"Accept": "application/json", "Content-Type": "application/json"})
 
-        session.auth = (self.config.username, self.config.password)
+        self.credential.apply(session)
         session.verify = self.config.verify_ssl
         return session
 
@@ -337,8 +344,8 @@ class JiraClient:
 
         if status == 401:
             raise JiraAuthError(
-                f"Jira authentication failed (401). Check JIRA_USERNAME/JIRA_PASSWORD. "
-                f"Details: {message}",
+                f"Jira authentication failed (401). Check JIRA_USERNAME/JIRA_PASSWORD "
+                f"or JIRA_PAT. Details: {message}",
                 status_code=status,
             )
         if status == 403:

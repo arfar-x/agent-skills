@@ -51,8 +51,6 @@ def _issue(
 def _fake_config(auto_confirm=False):
     return JiraConfig(
         base_url="https://jira.example.com",
-        username="alice",
-        password="secret",
         auto_confirm_writes=auto_confirm,
     )
 

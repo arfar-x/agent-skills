@@ -56,6 +56,24 @@ Per toolset `<toolset>` (e.g. `jira`):
   purely so each action gets its own Hermes slash command; they contain
   no Python of their own and nothing to test.
 
+**`skills/_shared/`** holds code more than one toolset needs -- e.g.
+`credentials/http.py`'s `Credential`/`BasicCredential`/`BearerCredential`
+types, used identically by any toolset authenticating a `requests.Session`
+(Jira today). A toolset that needs one of these files **symlinks** it
+into its own `lib/` (`ln -s ../../_shared/credentials/http.py
+skills/jira/lib/credentials.py`) rather than copying it -- one edit
+updates every consumer. This works under both consumption paths this
+repo supports: a direct `git clone` preserves the symlink natively, and
+`npx skills add --skill <name>`'s own installer (`vercel-labs/skills`)
+copies a symlinked file with `dereference: true` specifically to handle
+exactly this case (confirmed by reading its actual source, not assumed).
+**`skills/_shared/` must never contain a `SKILL.md`** -- both consumers
+above discover skills by walking for `SKILL.md`'s presence, so a
+directory without one is structurally invisible to either, not just
+conventionally excluded; `mcp-server/tests/test_registry.py` asserts
+this stays true. See `skills/_shared/README.md` for the full explanation,
+including the Windows `core.symlinks` caveat.
+
 When changing behavior (auth, request handling, tool output shape) for
 a toolset, edit its `skills/<toolset>/lib/` or `skills/<toolset>/tools/`,
 then update `skills/<toolset>/tests/` and run:
@@ -128,12 +146,55 @@ in the top-level `README.md`. See that file's "Agent Skills format"
 section for the open format this repo's `SKILL.md`s follow, and where
 this repo's frontmatter extends it.
 
+## Authentication
+
+Two independent layers, both real, don't conflate them:
+
+1. **A toolset's own credential** -- e.g. `skills/jira/lib/auth.py`'s
+   `load_credential()` returns a `Credential` (`BasicCredential` from
+   `JIRA_USERNAME`/`JIRA_PASSWORD`, or `BearerCredential` from `JIRA_PAT`
+   -- a Data Center Personal Access Token, an API key, or an OAuth token
+   all share this one wire format). This is the *only* layer that
+   exists for direct/personal use (Claude Code, Hermes, claude.ai) --
+   set the env vars, the toolset reads them, done.
+2. **`mcp-server`'s per-request resolution**, for a multi-user
+   deployment sharing one running server: a scoped environment per
+   subprocess call (never another toolset's credentials), an opt-in
+   per-request override (`X-Agent-Skills-Env-<VAR>`, trusted only
+   behind `--trust-request-credentials`), and opt-in inbound auth
+   (`MCP_AUTH_KEYCLOAK_REALM_URL`) to verify who's calling before that
+   trust means anything. Off by default; a toolset's own code never
+   knows or needs to know this layer exists.
+
+**[`AUTHENTICATION.md`](AUTHENTICATION.md)** is the full explanation of
+both -- read it before changing anything in `mcp-server/lib/credentials.py`,
+`mcp-server/lib/auth.py`, or any toolset's `lib/auth.py`. The
+`sensitive: true` and env-vars-only rules below are this layer's
+concrete, checkable conventions; the document above is the reasoning
+and the flow diagrams behind them.
+
 ## Conventions
 
 These apply repo-wide, to every toolset, not just Jira:
 
 - **Credentials only ever come from environment variables**, never
-  hard-coded, never logged in plaintext.
+  hard-coded, never logged in plaintext. A toolset's own code (its
+  `lib/auth.py`, its client) never knows or cares *how* an env var got
+  its value for a given process -- direct/personal use sets it once in
+  the shell; `mcp-server` may instead resolve it per request (a
+  multi-user client handing one caller's credential to one call and a
+  different caller's to the next), via a header-to-env override that's
+  opt-in and off by default -- see `mcp-server/README.md`'s "Multi-user
+  credentials and inbound auth". Either way the toolset still only ever
+  reads an env var; nothing about this convention or a toolset's own
+  code changes.
+- **A var that's genuinely a secret (a password, a token, an API key --
+  not a base URL or a boolean flag) sets `sensitive: true` on its
+  `required_environment_variables` entry.** This is what lets
+  `mcp-server` redact that var's resolved value from any error output a
+  caller (and therefore an LLM) sees -- see `skills/jira/SKILL.md`'s
+  `JIRA_PASSWORD`/`JIRA_PAT` entries for the pattern. A var without this
+  flag is assumed non-sensitive and is never redacted.
 - **No hardcoded local filesystem paths** in any `SKILL.md`, `README.md`,
   or Python source -- this repo is public. Use `../<toolset>/...`-relative
   paths or a generic `/path/to/...` placeholder in docs.

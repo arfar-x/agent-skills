@@ -30,7 +30,9 @@ from fastmcp import FastMCP
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from lib import credentials  # noqa: E402
 from lib.adapter_note import adapter_note  # noqa: E402
+from lib.auth import build_auth_provider  # noqa: E402
 from lib.doc_gen import build_doc_gen_tool  # noqa: E402
 from lib.introspect import IntrospectionError  # noqa: E402
 from lib.mcp_tools import register_toolset_tools  # noqa: E402
@@ -50,6 +52,12 @@ def build_app(*, include_internal: bool) -> FastMCP:
 
     app = FastMCP(
         name="agent-skills",
+        # None (the default) unless a provider's own env vars are set --
+        # see lib/auth.py. Verifying who's calling is what lets
+        # lib/credentials.py decide whether to trust a per-request
+        # credential header instead of always falling back to this
+        # server's own process env.
+        auth=build_auth_provider(),
         instructions=(
             "Exposes this repo's skills/ toolsets as typed MCP tools "
             "(one tool per CLI subcommand, named <toolset>_<subcommand>) "
@@ -133,6 +141,22 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--trust-request-credentials",
+        action="store_true",
+        help=(
+            "Honor a per-request credential header (X-Agent-Skills-Env-<VAR>) "
+            "instead of always using this server's own environment -- lets a "
+            "multi-user client hand a toolset a different caller's credential "
+            "per call. Falls back to MCP_TRUST_REQUEST_CREDENTIALS=1 if this "
+            "flag isn't passed. Only meaningful with --transport http/sse/"
+            "streamable-http; a self-asserted header on an unauthenticated "
+            "transport is trivially spoofable, so this should only be set "
+            "once an --auth-* provider (see lib/auth.py's env vars) actually "
+            "verifies who's calling -- setting it without one is flagged at "
+            "startup, not silently accepted."
+        ),
+    )
+    parser.add_argument(
         "--transport",
         choices=["stdio", "http", "sse", "streamable-http"],
         default="stdio",
@@ -175,6 +199,21 @@ def main() -> None:
     global app
     if args.include_internal:
         app = build_app(include_internal=True)
+
+    trust_request_credentials = credentials.resolve_trust_request_credentials(
+        args.trust_request_credentials
+    )
+    if trust_request_credentials and app.auth is None:
+        print(
+            "agent-skills mcp-server: --trust-request-credentials is set but no "
+            "auth provider is configured (see lib/auth.py's env vars) -- a "
+            "caller's self-asserted credential header will be honored with "
+            "nothing verifying who's actually calling. Configure a provider "
+            "first unless this server is reachable only by a caller you "
+            "already trust by other means (e.g. network isolation).",
+            file=sys.stderr,
+        )
+    credentials.configure(trust_request_credentials=trust_request_credentials)
 
     if args.transport == "stdio":
         app.run()

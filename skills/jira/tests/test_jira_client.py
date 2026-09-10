@@ -295,12 +295,12 @@ def test_triage_requires_a_project(client):
         client.triage()
 
 
-def test_triage_uses_default_project_from_config(jira_config, mock_session):
+def test_triage_uses_default_project_from_config(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     mock_session.request.side_effect = [
         make_response(json_data={"issues": []}),
         make_response(json_data={"issues": []}),
@@ -404,12 +404,12 @@ def test_search_users_scoped_by_explicit_project_hits_assignable_search(client, 
     assert kwargs["params"]["username"] == "sam"
 
 
-def test_search_users_scoped_by_default_project_from_config(jira_config, mock_session):
+def test_search_users_scoped_by_default_project_from_config(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     mock_session.request.return_value = make_response(json_data=[])
     configured_client.search_users("sam")
     method, url = mock_session.request.call_args[0][:2]
@@ -418,24 +418,24 @@ def test_search_users_scoped_by_default_project_from_config(jira_config, mock_se
     assert kwargs["params"]["project"] == "PAYKAN"
 
 
-def test_search_users_explicit_project_overrides_default_project(jira_config, mock_session):
+def test_search_users_explicit_project_overrides_default_project(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     mock_session.request.return_value = make_response(json_data=[])
     configured_client.search_users("sam", project="OTHER")
     _, kwargs = mock_session.request.call_args
     assert kwargs["params"]["project"] == "OTHER"
 
 
-def test_search_users_all_projects_ignores_explicit_and_default_project(jira_config, mock_session):
+def test_search_users_all_projects_ignores_explicit_and_default_project(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     mock_session.request.return_value = make_response(json_data=[])
     configured_client.search_users("sam", project="OTHER", all_projects=True)
     method, url = mock_session.request.call_args[0][:2]
@@ -448,12 +448,12 @@ def test_resolve_project_returns_none_when_neither_given(client):
     assert client.resolve_project(None) is None
 
 
-def test_resolve_project_falls_back_to_config_default(jira_config, mock_session):
+def test_resolve_project_falls_back_to_config_default(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     assert configured_client.resolve_project(None) == "PAYKAN"
     assert configured_client.resolve_project("OTHER") == "OTHER"
 
@@ -472,12 +472,12 @@ def test_create_issue_subtask_requires_parent_key(client):
         client.create_issue("PAYKAN", "Build UI", "Sub-task")
 
 
-def test_create_issue_builds_request_body_and_refetches(jira_config, mock_session):
+def test_create_issue_builds_request_body_and_refetches(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    cloud_client = JiraClient(config=replace(jira_config, deployment_type="cloud"), session=mock_session)
+    cloud_client = JiraClient(config=replace(jira_config, deployment_type="cloud"), credential=jira_credential, session=mock_session)
     create_response = make_response(status_code=201, json_data={"key": "PAYKAN-500"})
     get_response = make_response(
         json_data={"key": "PAYKAN-500", "fields": {"summary": "Build UI", "status": {"name": "To Do"}}}
@@ -515,12 +515,12 @@ def test_create_issue_builds_request_body_and_refetches(jira_config, mock_sessio
     }
 
 
-def test_create_issue_assignee_uses_name_field_on_server(jira_config, mock_session):
+def test_create_issue_assignee_uses_name_field_on_server(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), session=mock_session)
+    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), credential=jira_credential, session=mock_session)
     create_response = make_response(status_code=201, json_data={"key": "PAYKAN-500"})
     get_response = make_response(
         json_data={"key": "PAYKAN-500", "fields": {"summary": "Build UI", "status": {"name": "To Do"}}}
@@ -588,12 +588,12 @@ def test_edit_issue_sends_only_provided_fields_and_refetches(client, mock_sessio
     assert put_call.kwargs["json"] == {"fields": {"summary": "New title"}}
 
 
-def test_edit_issue_assignee_uses_name_field_on_server(jira_config, mock_session):
+def test_edit_issue_assignee_uses_name_field_on_server(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), session=mock_session)
+    server_client = JiraClient(config=replace(jira_config, deployment_type="server"), credential=jira_credential, session=mock_session)
     put_response = make_response(status_code=204)
     get_response = make_response(
         json_data={"key": "PAYKAN-1", "fields": {"summary": "New title", "status": {"name": "To Do"}}}
@@ -702,12 +702,12 @@ def _empty_project_context_responses(project_name="Payment Platform", lead="Alic
     ]
 
 
-def test_project_context_uses_default_project_from_config(jira_config, mock_session):
+def test_project_context_uses_default_project_from_config(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
-    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), session=mock_session)
+    configured_client = JiraClient(config=replace(jira_config, default_project="PAYKAN"), credential=jira_credential, session=mock_session)
     mock_session.request.side_effect = _empty_project_context_responses()
     result = configured_client.project_context()
     assert result["project"] == "PAYKAN"
@@ -822,13 +822,13 @@ def test_current_board_scopes_lookup_to_resolved_project(client, mock_session):
     assert kwargs["params"]["projectKeyOrId"] == "PAYKAN"
 
 
-def test_current_board_falls_back_to_default_project_from_config(jira_config, mock_session):
+def test_current_board_falls_back_to_default_project_from_config(jira_config, jira_credential, mock_session):
     from dataclasses import replace
 
     from lib.jira_client import JiraClient
 
     config = replace(jira_config, default_project="PAYKAN")
-    client = JiraClient(config=config, session=mock_session)
+    client = JiraClient(config=config, credential=jira_credential, session=mock_session)
     mock_session.request.return_value = make_response(
         json_data={"values": [{"id": 4, "name": "PAYKAN board", "type": "kanban"}]}
     )
