@@ -40,6 +40,7 @@ shells out to the same CLI to actually run a subcommand:
 
 ```bash
 pip install -r ../skills/jira/requirements.txt
+pip install -r ../skills/confluence/requirements.txt
 # and/or, only if you're passing --include-internal:
 pip install -r ../skills/telegram/requirements.txt
 ```

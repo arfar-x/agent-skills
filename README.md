@@ -1,16 +1,17 @@
 # Agent skills
 
 A personal collection of AI-agent skills -- a portable developer/work
-toolset, not a single-purpose repo. It currently holds one toolset
-(`jira`, plus its many thin per-action wrapper skills), several
-standalone skills, one internal toolset (`telegram`, excluded from
-default installs), and one vendored skill (`strategic-compact`,
-imported from a third-party repo); it's meant to grow with unrelated
-toolsets (e.g. a company back-office toolset) and further
-standalone/vendored skills alike, each following its own pattern's
-convention -- see "Layout and convention", "Standalone skills",
-"Internal skills", and "Vendored skills" below for what those patterns
-are, and "Skills in this repo" at the end for the full, current list.
+toolset, not a single-purpose repo. It currently holds a couple of
+toolsets (`jira`, `confluence`, each plus its own thin per-action
+wrapper skills), several standalone skills, one internal toolset
+(`telegram`, excluded from default installs), and one vendored skill
+(`strategic-compact`, imported from a third-party repo); it's meant to
+grow with unrelated toolsets (e.g. a company back-office toolset) and
+further standalone/vendored skills alike, each following its own
+pattern's convention -- see "Layout and convention", "Standalone
+skills", "Internal skills", and "Vendored skills" below for what those
+patterns are, and "Skills in this repo" at the end for the full,
+current list.
 
 Every skill here is a standard `SKILL.md`-fronted directory (YAML
 frontmatter + a markdown body of instructions), following the open
@@ -211,10 +212,11 @@ skills/
 └── <toolset>-<action>/   # Thin wrapper, one per action -- e.g. jira-my-work, jira-worklog
 ```
 
-`jira` is the only toolset in the repo today; see its own
-[`README.md`](skills/jira/README.md) for its full thin-skill catalog and
-the parent skill each one wraps. A future toolset (say, `backoffice`)
-lands the same way -- see "Adding a toolset" below.
+`jira` and `confluence` are the toolsets in the repo today; see each
+one's own `README.md` ([`jira`](skills/jira/README.md),
+[`confluence`](skills/confluence/README.md)) for its thin-skill catalog
+and the parent skill each one wraps. A future toolset (say,
+`backoffice`) lands the same way -- see "Adding a toolset" below.
 
 Thin per-action wrapper skills are the norm for a toolset meant to be
 installed piecemeal, not a requirement every toolset must satisfy --
@@ -405,6 +407,7 @@ instead (linked below), not repeated here.
 | Skill | Type | Description |
 |---|---|---|
 | [`jira`](skills/jira) | Toolset (Read + Write) | Do-everything Jira assistant -- see [`skills/jira/README.md`](skills/jira/README.md) for its full thin-skill catalog |
+| [`confluence`](skills/confluence) | Toolset (Read + Write) | Do-everything Confluence assistant (Cloud + Server/Data Center) -- see [`skills/confluence/README.md`](skills/confluence/README.md) for its thin-skill catalog |
 | [`mood`](skills/mood) | Standalone | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
 | [`prd`](skills/prd) | Standalone | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, a PRD-implementation-status navigation map |
 | [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |

@@ -41,7 +41,7 @@ server](mcp-server)) -- see "Two ways to reach the same skill" below.
 | Term | Meaning |
 |---|---|
 | **Skill** | One `SKILL.md`-fronted directory under `skills/`. The unit an agent runtime installs and matches a user request against. |
-| **Toolset** | A skill backed by real code: `lib/` (API client, env-based config), `tools/` (one Python module per action), `scripts/<name>_tool.py` (a CLI dispatcher exposing every tool as a subcommand), `tests/`. `jira` and `telegram` are the two toolsets today. |
+| **Toolset** | A skill backed by real code: `lib/` (API client, env-based config), `tools/` (one Python module per action), `scripts/<name>_tool.py` (a CLI dispatcher exposing every tool as a subcommand), `tests/`. `jira`, `confluence`, and `telegram` are the toolsets today. |
 | **Thin wrapper skill** | A `SKILL.md`-only directory (e.g. `jira-worklog/`) with no code of its own, that documents one toolset action for runtimes (like Hermes) that map one skill to one slash command. It shells out to its toolset's own CLI dispatcher; it has nothing to test. |
 | **Standalone skill** | A `SKILL.md`-only directory with **no backing toolset at all** -- `mood`, `prd`, `trd`, `adr`, `rfc`, `agents-md`. Pure instructions: there's no code path, no CLI, nothing to execute. The agent's own general-purpose tools (file writes, its own reasoning) carry out the instructions directly. This distinction matters a lot for workflow automation -- see below. |
 | **Internal skill** | `metadata.internal: true` in a `SKILL.md`'s frontmatter. Excluded from default installs and from the MCP server's tool list unless explicitly opted into (`INSTALL_INTERNAL_SKILLS=1` / `--include-internal`). `telegram` is the only one today, because it grants standing access to a real personal account. |
@@ -155,6 +155,19 @@ definitions live, not a duplicate of them.
   `auto_confirm_writes`, `default_project`, ...), loaded once via
   `load_config()`.
 
+**Confluence toolset** (`skills/confluence/lib/models.py`, `confluence_client.py`):
+- `Page`, `Space`, `Comment`, `Attachment`, `Ancestor` -- typed
+  dataclasses, each with a `.to_dict()` used to build every tool's JSON
+  response.
+- `ConfluenceClient` -- the single HTTP client, obtained via the
+  process-wide `get_client()` singleton; resolves the Cloud-vs-Server
+  REST path once at construction (`/wiki/rest/api` vs. `/rest/api` --
+  see `skills/confluence/README.md`'s "Design"), then owns auth,
+  retries, and every typed API call.
+- `ConfluenceConfig` -- env-sourced config (`CONFLUENCE_BASE_URL`,
+  `CONFLUENCE_DEPLOYMENT_TYPE`, credentials, `auto_confirm_writes`,
+  `default_space`, ...), loaded once via `load_config()`.
+
 **Telegram toolset** (`skills/telegram/lib/`):
 - `TelegramConfig`, `SessionState` (`auth.py`) -- env-sourced config and
   the on-disk session's TTL/expiry state.
@@ -172,6 +185,8 @@ rule-by-rule layout description (what goes in `lib/` vs `tools/` vs
 skills/
 ├── jira/            toolset: lib/ tools/ scripts/ tests/ requirements.txt README.md
 ├── jira-*/          17 thin wrapper skills, one per jira action
+├── confluence/       toolset, same shape, Cloud + Server/Data Center
+├── confluence-*/     7 thin wrapper skills, for confluence's highest-value actions
 ├── telegram/         toolset, metadata.internal: true
 ├── mood/ prd/ trd/ adr/ rfc/ agents-md/  standalone skills -- SKILL.md only, no code
 ├── strategic-compact/    vendored skill -- imported via git subtree, see README.md
@@ -202,22 +217,22 @@ doesn't yet.
 2. **Approve/revise is your workflow tool's job, not this repo's.**
    Nothing here models a human-in-the-loop review step -- that's Dify
    (or whichever workflow tool) pausing for input, not a skill.
-3. **Pushing to Jira works today** -- once your MCP client is pointed
-   at [`mcp-server/`](mcp-server) (see its README), a workflow's "call
-   a tool" step can call `jira_create_issue`, `jira_worklog`, etc.
-   directly, with the same confirm-gating behavior described above (a
-   workflow step can supply `confirm: true` once *it* has gotten
-   sign-off from the approve/revise step -- that's your workflow
-   enforcing the human step, this repo enforcing the write itself is
-   real).
-4. **Confluence and Notion toolsets don't exist in this repo yet.**
-   That's a real gap, not a hidden feature -- to add either, follow
-   "Adding a toolset" in `README.md` (own `lib/`/`tools/`/`scripts/`/
-   `tests/`, credentials from env vars only, writes gated in code the
-   same way Jira's are). Once added, **the MCP server picks it up with
-   zero code changes** -- its tools are generated from the new
-   toolset's own `build_parser()` at startup, the same way jira's are
-   today.
+3. **Pushing to Jira and Confluence both work today** -- once your MCP
+   client is pointed at [`mcp-server/`](mcp-server) (see its README), a
+   workflow's "call a tool" step can call `jira_create_issue`,
+   `confluence_create_page`, etc. directly, with the same confirm-gating
+   behavior described above (a workflow step can supply `confirm: true`
+   once *it* has gotten sign-off from the approve/revise step -- that's
+   your workflow enforcing the human step, this repo enforcing the
+   write itself is real).
+4. **Notion is the one toolset that doesn't exist in this repo yet.**
+   That's a real gap, not a hidden feature -- to add it, follow "Adding
+   a toolset" in `README.md` (own `lib/`/`tools/`/`scripts/`/`tests/`,
+   credentials from env vars only, writes gated in code the same way
+   Jira's and Confluence's are). Once added, **the MCP server picks it
+   up with zero code changes** -- its tools are generated from the new
+   toolset's own `build_parser()` at startup, the same way jira's and
+   confluence's are today.
 5. **"Deliver to developer"** is most naturally a `jira_edit_issue`
    assignee change or a comment, once that action exists as a tool
    call in your workflow. `telegram` could theoretically notify a
