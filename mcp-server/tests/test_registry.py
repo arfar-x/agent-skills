@@ -64,6 +64,24 @@ def test_telegram_included_when_internal_enabled(tmp_repo):
     assert telegram.internal is True
 
 
+def test_mcp_false_skill_excluded_by_default(tmp_repo):
+    manifests = discover_skills(tmp_repo, include_internal=False)
+    assert "not-mcp-exposed" not in {m.name for m in manifests}
+
+
+def test_mcp_false_skill_excluded_even_with_internal_included(tmp_repo):
+    """Unlike `internal`, there's no flag that brings a `mcp: false` skill
+    back -- it's a per-skill statement, not a risk gate someone can lift."""
+    manifests = discover_skills(tmp_repo, include_internal=True)
+    assert "not-mcp-exposed" not in {m.name for m in manifests}
+
+
+def test_mcp_defaults_true_when_unset(tmp_repo):
+    manifests = {m.name: m for m in discover_skills(tmp_repo, include_internal=False)}
+    assert manifests["jira"].mcp is True
+    assert manifests["mood"].mcp is True
+
+
 def test_required_environment_variables_preserved(tmp_repo):
     manifests = {m.name: m for m in discover_skills(tmp_repo, include_internal=False)}
     names = {v["name"] for v in manifests["jira"].required_environment_variables}

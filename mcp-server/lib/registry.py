@@ -26,6 +26,7 @@ class SkillManifest:
     skill_md_path: Path
     kind: SkillKind
     internal: bool
+    mcp: bool  # False (metadata.mcp: false) means never exposed by mcp-server, no override
     required_environment_variables: tuple[dict, ...]
     frontmatter: dict
     body: str  # markdown body, as read at discovery time (get_skill re-reads live)
@@ -46,12 +47,22 @@ def _is_internal(frontmatter: dict) -> bool:
     return bool((frontmatter.get("metadata") or {}).get("internal", False))
 
 
+def _is_mcp_enabled(frontmatter: dict) -> bool:
+    """metadata.mcp defaults to True -- only an explicit `mcp: false` opts a
+    skill out of mcp-server exposure. Unlike `internal`, there's no flag to
+    override this back on: it's a per-skill statement that the skill isn't
+    meant to be exposed as an MCP tool, not a risk gate someone can lift.
+    """
+    return bool((frontmatter.get("metadata") or {}).get("mcp", True))
+
+
 def discover_skills(repo_root: Path, *, include_internal: bool) -> list[SkillManifest]:
-    """Scan skills/*/SKILL.md, classify each, and apply internal-skill
-    gating. `include_internal` is the caller's already-resolved decision
-    (server.py's --include-internal flag, falling back to
+    """Scan skills/*/SKILL.md, classify each, and apply internal-skill and
+    mcp-exposure gating. `include_internal` is the caller's already-resolved
+    decision (server.py's --include-internal flag, falling back to
     INSTALL_INTERNAL_SKILLS=1) -- this function doesn't read the env
-    itself, so it stays trivially testable.
+    itself, so it stays trivially testable. A skill with `metadata.mcp:
+    false` is excluded unconditionally, with no equivalent override flag.
     """
     skills_dir = repo_root / "skills"
 
@@ -71,6 +82,9 @@ def discover_skills(repo_root: Path, *, include_internal: bool) -> list[SkillMan
         internal = _is_internal(frontmatter)
         if internal and not include_internal:
             continue
+        mcp_enabled = _is_mcp_enabled(frontmatter)
+        if not mcp_enabled:
+            continue
 
         required_env = tuple(frontmatter.get("required_environment_variables", []))
         dir_path = skills_dir / name
@@ -79,7 +93,7 @@ def discover_skills(repo_root: Path, *, include_internal: bool) -> list[SkillMan
             manifests.append(
                 SkillManifest(
                     name=name, dir_path=dir_path, skill_md_path=skill_md_path,
-                    kind="toolset_root", internal=internal,
+                    kind="toolset_root", internal=internal, mcp=mcp_enabled,
                     required_environment_variables=required_env, frontmatter=frontmatter, body=body,
                     script_path=dir_path / "scripts" / f"{name}_tool.py", toolset=name,
                 )
@@ -97,7 +111,7 @@ def discover_skills(repo_root: Path, *, include_internal: bool) -> list[SkillMan
             manifests.append(
                 SkillManifest(
                     name=name, dir_path=dir_path, skill_md_path=skill_md_path,
-                    kind="toolset_thin_wrapper", internal=internal,
+                    kind="toolset_thin_wrapper", internal=internal, mcp=mcp_enabled,
                     required_environment_variables=required_env, frontmatter=frontmatter, body=body,
                     toolset=matched_root,
                 )
@@ -106,7 +120,7 @@ def discover_skills(repo_root: Path, *, include_internal: bool) -> list[SkillMan
             manifests.append(
                 SkillManifest(
                     name=name, dir_path=dir_path, skill_md_path=skill_md_path,
-                    kind="standalone", internal=internal,
+                    kind="standalone", internal=internal, mcp=mcp_enabled,
                     required_environment_variables=required_env, frontmatter=frontmatter, body=body,
                 )
             )
