@@ -118,6 +118,17 @@ this repo's other install paths already use (checked only if
 `--include-internal` isn't passed). Both mean the same thing; use
 whichever your MCP client config makes easier to set.
 
+### Skills excluded from MCP only (`metadata.mcp: false`)
+
+A skill can also opt out of this server specifically with
+`metadata.mcp: false` in its own `SKILL.md` frontmatter -- it never
+appears in `list_skills`, `get_skill`, or as generated tools, but it's
+otherwise unaffected (still installs normally via `npx skills`, Hermes,
+Claude Code, claude.ai). Unlike `--include-internal` above, there's no
+flag or env var that brings it back -- see the top-level
+[`README.md`](../README.md#excluding-a-skill-from-the-mcp-server) for the
+full internal-vs-`mcp` comparison.
+
 **Telegram's outbound actions need a second, separate opt-in.** In
 `TELEGRAM_CONFIRM_MODE=tty` (the default), `telegram_send_message`,
 `telegram_send_bulk`, and `telegram_forward_message` read a literal

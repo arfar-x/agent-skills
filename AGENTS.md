@@ -26,6 +26,24 @@ which grants standing access to a personal account) -- it is not a
 general-purpose "hide this skill" switch, and it doesn't relax any of the
 conventions below.
 
+A skill can separately set `metadata.mcp: false` in its `SKILL.md`
+frontmatter to keep it out of `mcp-server`'s exposure specifically,
+without affecting anything else -- a non-internal skill with `mcp: false`
+still installs and lists normally everywhere else (`npx skills`, Hermes,
+Claude Code, claude.ai); it just never becomes an MCP tool or shows up in
+`mcp-server`'s `list_skills`/`get_skill`. Default is `true` (exposed) when
+the key is absent -- only set it to `false` when a skill genuinely
+shouldn't be reachable over MCP (e.g. one whose whole point is a runtime
+capability MCP has no equivalent for). Internal and `mcp: false` land on
+`mcp-server` the same way -- neither is exposed there -- but they differ
+everywhere else: an internal skill is also hidden from `npx skills`
+`--list`/`--all` (installable only by naming it explicitly with
+`INSTALL_INTERNAL_SKILLS=1`), while `mcp: false` has no effect on `npx
+skills` at all. And unlike `internal`, there's no override flag for `mcp:
+false` -- `--include-internal` brings an internal skill's tools back, but
+nothing brings back a skill whose own frontmatter says it isn't meant for
+MCP.
+
 A standalone skill that produces a document from a template (`prd`,
 `trd`, `adr`, `rfc`, `agents-md`, and any future `erd`/...) should
 additionally set `metadata.doc_type: <slug>` in its `SKILL.md`

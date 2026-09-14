@@ -163,9 +163,9 @@ runtime's proprietary plugin format.
 
 The spec requires only `name`/`description`. This repo's `SKILL.md`s add
 extra frontmatter (`version`, `metadata.category`, `metadata.hermes.*`,
-`metadata.internal`, `required_environment_variables`) that isn't part
-of the open spec -- keys a spec-compliant runtime simply doesn't
-recognize and ignores, per "Frontmatter compatibility" below.
+`metadata.internal`, `metadata.mcp`, `required_environment_variables`)
+that isn't part of the open spec -- keys a spec-compliant runtime simply
+doesn't recognize and ignores, per "Frontmatter compatibility" below.
 
 Runtime-specific docs, for context (not the spec itself, but the primary
 runtimes this repo is written to run under):
@@ -189,9 +189,10 @@ ignored -- no stripping or per-platform variant is needed.
 above rather than replacing it -- Hermes' own installer specifically
 reads that nested path to sort an installed skill into its category
 folder, so it stays even though the top-level key already covers every
-other client. `metadata.internal` is a convention this repo's own
-frontmatter follows (see "Internal skills" below), not part of the spec
-either. The same `SKILL.md` file works unmodified across every runtime
+other client. `metadata.internal` and `metadata.mcp` are conventions this
+repo's own frontmatter follows (see "Internal skills" and "Excluding a
+skill from the MCP server" below), not part of the spec either. The same
+`SKILL.md` file works unmodified across every runtime
 above; Hermes specifically runs skill code in a sandboxed `terminal`
 tool that strips any env var not listed in that skill's
 `required_environment_variables` (see `AGENTS.md`'s "Conventions" for
@@ -278,6 +279,25 @@ that just isn't ready yet -- it's specifically for "this needs the
 installing human to have actively opted in, having read what it grants."
 See `skills/telegram/README.md` for its disclaimer and security model
 before installing it.
+
+## Excluding a skill from the MCP server
+
+A skill can also set `metadata.mcp: false` in its `SKILL.md` frontmatter
+to opt out of [`mcp-server`](mcp-server)'s exposure specifically --
+`mcp-server` never lists it, serves its `SKILL.md` via `get_skill`, or
+registers its CLI subcommands as MCP tools, but the skill installs and
+lists normally everywhere else (`npx skills`, Hermes, Claude Code,
+claude.ai). The key defaults to `true` (exposed) when absent, so most
+skills never need to set it -- reach for `false` only when a skill
+genuinely isn't meant to be reachable over MCP.
+
+This is a different axis from **internal**: an internal skill is also
+excluded from `mcp-server` by default, but `--include-internal` (or
+`INSTALL_INTERNAL_SKILLS=1`) brings it back, and it's *additionally*
+hidden from `npx skills`' own `--list`/`--all`. `metadata.mcp: false` has
+no such override -- it's a standing statement in the skill's own
+frontmatter that it isn't meant for MCP, not a risk gate an installer can
+choose to lift -- and it has no effect on `npx skills` at all.
 
 ## Vendored skills
 

@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 
 
-def _write_skill(skills_dir: Path, name: str, *, internal: bool = False, required_env: list[dict] | None = None,
+def _write_skill(skills_dir: Path, name: str, *, internal: bool = False, mcp: bool | None = None,
+                  required_env: list[dict] | None = None,
                   with_script: bool = False, body: str = "Do the thing.\n") -> None:
     skill_dir = skills_dir / name
     skill_dir.mkdir(parents=True)
@@ -16,10 +17,12 @@ def _write_skill(skills_dir: Path, name: str, *, internal: bool = False, require
         f"description: Test skill {name}.",
         "version: 1.0.0",
     ]
-    if internal or required_env:
+    if internal or mcp is not None or required_env:
         frontmatter_lines.append("metadata:")
         if internal:
             frontmatter_lines.append("  internal: true")
+        if mcp is not None:
+            frontmatter_lines.append(f"  mcp: {'true' if mcp else 'false'}")
     if required_env:
         frontmatter_lines.append("required_environment_variables:")
         for var in required_env:
@@ -60,4 +63,5 @@ def tmp_repo(tmp_path: Path) -> Path:
     _write_skill(skills_dir, "telegram", internal=True, with_script=True, required_env=[
         {"name": "TELEGRAM_API_ID", "required_for": "all functionality"},
     ])
+    _write_skill(skills_dir, "not-mcp-exposed", mcp=False)
     return tmp_path
