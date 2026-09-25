@@ -196,14 +196,14 @@ mcp-server/            MCP adapter -- not a skill or toolset, see below
 ## Automating a workflow on top of this repo (e.g. Dify)
 
 A common shape: **product input -> doc generation -> human
-approve/revise -> push to Jira/Confluence/Notion -> notify a
-developer.** Here's how that maps onto what exists today, and what
-doesn't yet.
+approve/revise -> push to Jira/Confluence -> notify a
+developer.** Here's how that maps onto what exists in this repo and
+what doesn't.
 
 1. **Doc generation from a brief (`prd` / `trd` / `adr` / `rfc`, and any
-   future `erd`) is a standalone skill -- there is no tool that
-   generates the document itself.** Wire it as an LLM/agent node whose
-   system prompt is the output of `doc_gen(doc_type="prd")` (or
+   other skill that declares `metadata.doc_type`) is a standalone
+   skill -- there is no tool that generates the document itself.**
+   Wire it as an LLM/agent node whose system prompt is the output of `doc_gen(doc_type="prd")` (or
    `"trd"`/`"adr"`/`"rfc"`) -- the real, current instructions, fetched
    live, not copy-pasted into your workflow tool and left to rot. `doc_gen`'s
    `doc_type` is a real enum in its MCP schema, built from whichever
@@ -225,15 +225,7 @@ doesn't yet.
    once *it* has gotten sign-off from the approve/revise step -- that's
    your workflow enforcing the human step, this repo enforcing the
    write itself is real).
-4. **Notion is the one toolset that doesn't exist in this repo yet.**
-   That's a real gap, not a hidden feature -- to add it, follow "Adding
-   a toolset" in `README.md` (own `lib/`/`tools/`/`scripts/`/`tests/`,
-   credentials from env vars only, writes gated in code the same way
-   Jira's and Confluence's are). Once added, **the MCP server picks it
-   up with zero code changes** -- its tools are generated from the new
-   toolset's own `build_parser()` at startup, the same way jira's and
-   confluence's are today.
-5. **"Deliver to developer"** is most naturally a `jira_edit_issue`
+4. **"Deliver to developer"** is most naturally a `jira_edit_issue`
    assignee change or a comment, once that action exists as a tool
    call in your workflow. `telegram` could theoretically notify a
    person directly, but its outbound actions are deliberately built to

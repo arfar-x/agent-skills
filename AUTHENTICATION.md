@@ -184,8 +184,8 @@ guarding it: one proving the general mechanism, one checking the real
 1. If the new toolset authenticates an HTTP session the same way (Basic
    or a bearer token), symlink the existing shared file:
    `ln -s ../../_shared/credentials/http.py skills/<toolset>/lib/credentials.py`.
-   If it needs a genuinely different shape (see "What's deliberately not
-   built yet" below), that's a new file under `skills/_shared/credentials/`,
+   If it needs a genuinely different shape (see "Limits of `Credential`"
+   below), that's a new file under `skills/_shared/credentials/`,
    not a variant crammed into `http.py`.
 2. Write that toolset's own `load_credential(env=None)` in its own
    `lib/auth.py`, reading whatever env vars make sense for that system
@@ -199,18 +199,15 @@ guarding it: one proving the general mechanism, one checking the real
    below already works for any toolset whose `required_environment_variables`
    frontmatter is accurate, generically.
 
-### What's deliberately not built yet
+### Limits of `Credential`
 
-A future **`git`** toolset (operating on repos directly via the `git`
-CLI, not a REST API) needs a genuinely different credential shape --
-SSH keys or a credential helper, not a value you set on a
-`requests.Session`. That's a different enough problem (a private key
-especially should never be handled like a bearer token -- e.g. never
-passed as a header value the way Part 2 does for HTTP credentials) that
-it's intentionally not designed here. When that toolset actually exists,
-it gets its own module under `skills/_shared/credentials/` (e.g.
-`process.py`), built against a real requirement instead of guessed at
-in advance.
+`Credential` only covers credentials applied to a `requests.Session`
+(HTTP Basic or a bearer token). A toolset that authenticates some other
+way -- SSH keys or a credential helper for the `git` CLI, say -- needs a
+different shape, in its own module under `skills/_shared/credentials/`
+rather than a variant of `http.py`. A private key must never be handled
+like a bearer token, e.g. passed as a header value the way Part 2 does
+for HTTP credentials.
 
 ---
 
