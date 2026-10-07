@@ -282,6 +282,13 @@ X-Agent-Skills-Env-JIRA_USERNAME: alice
 X-Agent-Skills-Env-JIRA_PASSWORD: alices-own-password
 ```
 
+Optionally, one header value can mean "not set": start the server with
+`--unset-header-value -` (or `MCP_UNSET_HEADER_VALUE=-`) and a header whose
+value is exactly `-` removes the var for that call. It is off unless
+configured. It does not fall back to the server's own environment, so
+a caller without a credential never runs as the server's identity. It
+is for clients that cannot send an empty value.
+
 Two things keep this from being a way to smuggle in arbitrary
 environment variables:
 

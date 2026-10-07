@@ -157,6 +157,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--unset-header-value",
+        default=None,
+        help=(
+            "A trusted X-Agent-Skills-Env-<VAR> header carrying exactly this "
+            "value means the var is not set for that call -- removed, never "
+            "filled from this server's own environment. For clients that "
+            "cannot send an empty value (e.g. '-'). Falls back to "
+            "MCP_UNSET_HEADER_VALUE; empty (the default) disables it."
+        ),
+    )
+    parser.add_argument(
         "--transport",
         choices=["stdio", "http", "sse", "streamable-http"],
         default="stdio",
@@ -213,7 +224,10 @@ def main() -> None:
             "already trust by other means (e.g. network isolation).",
             file=sys.stderr,
         )
-    credentials.configure(trust_request_credentials=trust_request_credentials)
+    credentials.configure(
+        trust_request_credentials=trust_request_credentials,
+        unset_header_value=credentials.resolve_unset_header_value(args.unset_header_value),
+    )
 
     if args.transport == "stdio":
         app.run()

@@ -160,7 +160,11 @@ anything for personal use.
 **Per-request credential override.** A caller can supply
 `X-Agent-Skills-Env-<VAR>` as an HTTP header (e.g.
 `X-Agent-Skills-Env-JIRA_PASSWORD`) to override one of a toolset's own
-declared env vars for that single call. Two things keep this safe:
+declared env vars for that single call. With `--unset-header-value -`
+(or `MCP_UNSET_HEADER_VALUE=-`; off by default), the value `-` means
+"not set" for that call -- the var is removed, never filled from the server's own
+environment -- for clients that cannot send an empty value. Two things
+keep this safe:
 
 - Only vars the toolset itself declares in its `required_environment_variables`
   frontmatter are ever accepted this way -- a header can't inject an
