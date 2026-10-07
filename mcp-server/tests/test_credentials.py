@@ -95,3 +95,75 @@ def test_resolve_trust_falls_back_to_env_var(monkeypatch):
 def test_resolve_trust_defaults_false(monkeypatch):
     monkeypatch.delenv("MCP_TRUST_REQUEST_CREDENTIALS", raising=False)
     assert credentials.resolve_trust_request_credentials(False) is False
+
+
+
+def _enable_unset_marker(value="-"):
+    credentials.configure(trust_request_credentials=True, unset_header_value=value)
+
+
+@patch(
+    "lib.credentials._get_http_headers",
+    return_value={"x-agent-skills-env-gitlab_token": "-", "x-agent-skills-env-gitlab_default_project": " - "},
+)
+def test_trusted_unset_header_removes_the_var(mock_headers, monkeypatch):
+    _enable_unset_marker()
+    monkeypatch.delenv("GITLAB_TOKEN", raising=False)
+    monkeypatch.delenv("GITLAB_DEFAULT_PROJECT", raising=False)
+    manifest = _manifest(
+        required_env=({"name": "GITLAB_TOKEN"}, {"name": "GITLAB_DEFAULT_PROJECT"}),
+        toolset="glab",
+    )
+    env = credentials.resolve_env(manifest, trust_request_credentials=True)
+    assert "GITLAB_TOKEN" not in env
+    assert "GITLAB_DEFAULT_PROJECT" not in env
+
+
+@patch("lib.credentials._get_http_headers", return_value={"x-agent-skills-env-gitlab_token": "-"})
+def test_unset_header_never_falls_back_to_the_servers_own_credential(mock_headers, monkeypatch):
+    # A caller saying "I have no token" must not run as the server's identity.
+    _enable_unset_marker()
+    monkeypatch.setenv("GITLAB_TOKEN", "server-service-account")
+    manifest = _manifest(required_env=({"name": "GITLAB_TOKEN"},), toolset="glab")
+    env = credentials.resolve_env(manifest, trust_request_credentials=True)
+    assert "GITLAB_TOKEN" not in env
+
+
+@patch("lib.credentials._get_http_headers", return_value={"x-agent-skills-env-jira_password": "pa-ss-"})
+def test_a_value_merely_containing_the_marker_is_kept(mock_headers):
+    _enable_unset_marker()
+    manifest = _manifest(required_env=({"name": "JIRA_PASSWORD"},))
+    env = credentials.resolve_env(manifest, trust_request_credentials=True)
+    assert env["JIRA_PASSWORD"] == "pa-ss-"
+
+
+@patch("lib.credentials._get_http_headers", return_value={"x-agent-skills-env-gitlab_token": "-"})
+def test_untrusted_unset_header_is_ignored_like_any_other(mock_headers, monkeypatch):
+    credentials.configure(trust_request_credentials=False, unset_header_value="-")
+    monkeypatch.setenv("GITLAB_TOKEN", "from-process-env")
+    manifest = _manifest(required_env=({"name": "GITLAB_TOKEN"},), toolset="glab")
+    env = credentials.resolve_env(manifest, trust_request_credentials=False)
+    assert env["GITLAB_TOKEN"] == "from-process-env"
+
+
+@patch("lib.credentials._get_http_headers", return_value={"x-agent-skills-env-gitlab_token": "-"})
+def test_without_a_configured_marker_the_value_passes_through(mock_headers):
+    credentials.configure(trust_request_credentials=True)
+    manifest = _manifest(required_env=({"name": "GITLAB_TOKEN"},), toolset="glab")
+    env = credentials.resolve_env(manifest, trust_request_credentials=True)
+    assert env["GITLAB_TOKEN"] == "-"
+
+
+@patch("lib.credentials._get_http_headers", return_value={"x-agent-skills-env-gitlab_token": "n/a"})
+def test_the_marker_is_whatever_was_configured(mock_headers):
+    _enable_unset_marker("n/a")
+    manifest = _manifest(required_env=({"name": "GITLAB_TOKEN"},), toolset="glab")
+    assert "GITLAB_TOKEN" not in credentials.resolve_env(manifest, trust_request_credentials=True)
+
+
+def test_resolve_unset_header_value_flag_wins_then_env_then_disabled(monkeypatch):
+    monkeypatch.setenv("MCP_UNSET_HEADER_VALUE", "-")
+    assert credentials.resolve_unset_header_value("n/a") == "n/a"
+    assert credentials.resolve_unset_header_value(None) == "-"
+    monkeypatch.delenv("MCP_UNSET_HEADER_VALUE")
+    assert credentials.resolve_unset_header_value(None) == ""

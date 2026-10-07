@@ -84,6 +84,7 @@ _INFRA_ENV_VARS = frozenset(
 #: set a header can use this.
 _HEADER_PREFIX = "x-agent-skills-env-"  # get_http_headers() lowercases names
 
+
 _warned_untrusted_headers_seen = False
 
 
@@ -97,14 +98,21 @@ _warned_untrusted_headers_seen = False
 #: (headers ignored, process env used) unless a deployment opts in.
 _trust_request_credentials = False
 
+#: A trusted header carrying exactly this value (after trimming) means
+#: "this var is not set for this call", for clients that cannot send an
+#: empty value. Empty (the default) disables it: every header value is
+#: then passed through as-is. Set once at startup, like the trust flag.
+_unset_header_value = ""
 
-def configure(*, trust_request_credentials: bool) -> None:
+
+def configure(*, trust_request_credentials: bool, unset_header_value: str = "") -> None:
     """Called once by server.py at startup. Not meant to be called
     per-request or mid-run -- this is process-lifetime configuration,
     the same as which transport or which toolsets are active.
     """
-    global _trust_request_credentials
+    global _trust_request_credentials, _unset_header_value
     _trust_request_credentials = trust_request_credentials
+    _unset_header_value = unset_header_value.strip()
 
 
 def is_trusted() -> bool:
@@ -121,6 +129,15 @@ def resolve_trust_request_credentials(cli_flag: bool) -> bool:
     if cli_flag:
         return True
     return os.environ.get("MCP_TRUST_REQUEST_CREDENTIALS") == "1"
+
+
+def resolve_unset_header_value(cli_value: str | None) -> str:
+    """--unset-header-value wins when passed; otherwise
+    MCP_UNSET_HEADER_VALUE; otherwise empty, which disables the marker.
+    """
+    if cli_value is not None:
+        return cli_value.strip()
+    return os.environ.get("MCP_UNSET_HEADER_VALUE", "").strip()
 
 
 def _declared_var_names(manifest: "SkillManifest") -> set[str]:
@@ -162,6 +179,12 @@ def resolve_env(manifest: "SkillManifest", *, trust_request_credentials: bool) -
     server's own process environment by default; when
     `trust_request_credentials` is True, a matching per-request header
     overrides that for this one call only (nothing is persisted).
+
+    When an unset marker is configured (see `configure`), a trusted header
+    whose value is exactly that marker removes the var for this call
+    instead of setting it. It never falls back to the
+    process env: a caller saying "I have no token" must not end up
+    running as the server's own identity.
     """
     declared = _declared_var_names(manifest)
 
@@ -170,7 +193,11 @@ def resolve_env(manifest: "SkillManifest", *, trust_request_credentials: bool) -
 
     overrides = _header_overrides(declared)
     if trust_request_credentials:
-        env.update(overrides)
+        for name, value in overrides.items():
+            if _unset_header_value and value.strip() == _unset_header_value:
+                env.pop(name, None)
+            else:
+                env[name] = value
     elif overrides:
         global _warned_untrusted_headers_seen
         if not _warned_untrusted_headers_seen:
