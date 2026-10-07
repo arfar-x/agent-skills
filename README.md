@@ -2,7 +2,7 @@
 
 A personal collection of AI-agent skills -- a portable developer/work
 toolset, not a single-purpose repo. It currently holds a couple of
-toolsets (`jira`, `confluence`, each plus its own thin per-action
+toolsets (`jira`, `confluence`, `glab`, each plus its own thin per-action
 wrapper skills), several standalone skills, one internal toolset
 (`telegram`, excluded from default installs), and one vendored skill
 (`strategic-compact`, imported from a third-party repo); it's meant to
@@ -213,9 +213,10 @@ skills/
 └── <toolset>-<action>/   # Thin wrapper, one per action -- e.g. jira-my-work, jira-worklog
 ```
 
-`jira` and `confluence` are the toolsets in the repo today; see each
-one's own `README.md` ([`jira`](skills/jira/README.md),
-[`confluence`](skills/confluence/README.md)) for its thin-skill catalog
+`jira`, `confluence`, and `glab` (GitLab) are the toolsets in the repo
+today; see each one's own `README.md` ([`jira`](skills/jira/README.md),
+[`confluence`](skills/confluence/README.md),
+[`glab`](skills/glab/README.md)) for its thin-skill catalog
 and the parent skill each one wraps. A future toolset (say,
 `backoffice`) lands the same way -- see "Adding a toolset" below.
 
@@ -428,12 +429,14 @@ instead (linked below), not repeated here.
 |---|---|---|
 | [`jira`](skills/jira) | Toolset (Read + Write) | Do-everything Jira assistant -- see [`skills/jira/README.md`](skills/jira/README.md) for its full thin-skill catalog |
 | [`confluence`](skills/confluence) | Toolset (Read + Write) | Do-everything Confluence assistant (Cloud + Server/Data Center) -- see [`skills/confluence/README.md`](skills/confluence/README.md) for its thin-skill catalog |
+| [`glab`](skills/glab) | Toolset (Read + Write) | Do-everything GitLab assistant (self-hosted or gitlab.com, personal access token) -- repository files, merge requests, diffs, discussions, and gated general/inline MR comments; also what [`code-review`](skills/code-review) uses to review a remote MR -- see [`skills/glab/README.md`](skills/glab/README.md) for its thin-skill catalog |
 | [`mood`](skills/mood) | Standalone | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
 | [`prd`](skills/prd) | Standalone | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, a PRD-implementation-status navigation map |
 | [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |
 | [`adr`](skills/adr) | Standalone | Records a design/architecture decision, its context, alternatives, and consequences under `docs/ADRs/` |
 | [`rfc`](skills/rfc) | Standalone | Turns a proposed technical/architecture change into an RFC -- problem, design, risks, migration plan -- under `docs/RFCs/`, for team review |
 | [`agents-md`](skills/agents-md) | Standalone | Writes/updates a token-conscious `AGENTS.md` (root + nested per-subproject files for a monorepo) that links to existing docs instead of duplicating them |
+| [`code-review`](skills/code-review) | Standalone | Reviews a git diff -- or a remote GitLab merge request, via `glab` -- for correctness bugs and code-quality issues across eight independent angles, verifies each candidate once, and reports a capped, severity-ranked list of findings; posts them back to the MR as inline comments only when asked |
 | [`task2code`](skills/task2code) | Standalone | Turns a Jira ticket into a reviewed pull request -- plan, scaffold, implement, tests, local quality gate, commit, PR -- following the project's own `AGENTS.md` and git conventions, confirming with the user at every irreversible step |
 | [`learn-fast`](skills/learn-fast) | Standalone | Explains a topic as a compressed mental model -- highest-leverage concepts first, mechanism and causal structure explicit, anchored to what the user already knows, depth expanded one branch at a time |
 | [`context-sanitizer`](skills/context-sanitizer) | Standalone | Strips conversation, decision-narrative, roadmap, and other session context from code comments and implementation docs so they describe only the current software -- scoped by the user, classified KEEP/REWRITE/REMOVE/REVIEW, applied only after approval |

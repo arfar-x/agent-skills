@@ -146,7 +146,7 @@ flowchart LR
 `skills/_shared/credentials/http.py` holds the `Credential` types.
 `skills/jira/lib/credentials.py` is a **symlink** to it
 (`ln -s ../../_shared/credentials/http.py skills/jira/lib/credentials.py`),
-not a copy -- so a future Confluence or GitLab toolset (both of which
+not a copy -- so the Confluence and GitLab toolsets (both of which
 authenticate a `requests.Session` the same way -- confirmed directly
 from GitLab's own docs that its API accepts `Authorization: Bearer
 <token>`, not just its `PRIVATE-TOKEN` header) can symlink the exact

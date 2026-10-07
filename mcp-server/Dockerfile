@@ -4,7 +4,7 @@
 #   docker build -f mcp-server/Dockerfile -t agent-skills-mcp .
 #
 # TOOLSETS selects which toolsets' own requirements.txt get installed
-# alongside mcp-server's -- e.g. --build-arg TOOLSETS="jira confluence".
+# alongside mcp-server's -- e.g. --build-arg TOOLSETS="jira confluence glab".
 # Internal skills (metadata.internal: true, e.g. telegram) are deliberately
 # never started via --include-internal in CMD: their write-gates assume a
 # controlling terminal a headless server doesn't have.

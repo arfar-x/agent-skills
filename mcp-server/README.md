@@ -41,6 +41,7 @@ shells out to the same CLI to actually run a subcommand:
 ```bash
 pip install -r ../skills/jira/requirements.txt
 pip install -r ../skills/confluence/requirements.txt
+pip install -r ../skills/glab/requirements.txt
 # and/or, only if you're passing --include-internal:
 pip install -r ../skills/telegram/requirements.txt
 ```
@@ -229,7 +230,7 @@ docker run --rm -p 8321:8321 \
   agent-skills-mcp
 ```
 
-`--build-arg TOOLSETS="jira confluence"` controls which toolsets' own
+`--build-arg TOOLSETS="jira confluence glab"` controls which toolsets' own
 `requirements.txt` get installed into the image alongside `mcp-server`'s --
 default is `jira` alone. `--include-internal` is deliberately never passed in
 the image's `CMD`; `skills/telegram/`'s write-gate assumes a controlling
