@@ -4,7 +4,7 @@ description: >-
   Moves a Jira issue to a new status. Use for "move PAY-123 to Review" or
   "close PAY-123". This is a write operation gated behind explicit user
   confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -31,10 +31,11 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
+uv run ../jira/scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key` and `--status` (target status or transition name) are
 required. This refuses to execute unless run with `--confirm` (enforced

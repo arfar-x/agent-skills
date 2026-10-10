@@ -5,7 +5,7 @@ description: >-
   page results. Use for "find pages about X", "search Confluence for
   Y", or any lookup not covered by a more specific Confluence skill.
   This is a read-only operation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,12 +32,12 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py search --cql "space = ENG AND type = page AND text ~ 'onboarding'" \
+uv run ../confluence/scripts/confluence_tool.py search --cql "space = ENG AND type = page AND text ~ 'onboarding'" \
   [--max_results 25] [--include_body]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 `--cql` is required -- a real [CQL](https://developer.atlassian.com/cloud/confluence/advanced-searching-using-cql/)
 query, not a plain keyword string; build it yourself (e.g.

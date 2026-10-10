@@ -7,7 +7,7 @@ description: >-
   on this project", "what labels exist" -- or before filtering JQL on a
   status/label/assignee you're not sure is real, to verify it instead of
   guessing.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -34,10 +34,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py project_context [--project PAY]
+uv run ../jira/scripts/jira_tool.py project_context [--project PAY]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 ## Why this exists
 

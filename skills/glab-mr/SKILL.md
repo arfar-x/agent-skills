@@ -5,7 +5,7 @@ description: >-
   diff_refs) and every discussion thread on it. Use for "what's MR 42 about",
   "what has been said on this MR", or before reviewing/commenting on one.
   Read-only.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -30,12 +30,12 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../glab/scripts/glab_tool.py get_mr --project group/repo --mr_iid 42
-python3 ../glab/scripts/glab_tool.py get_mr_discussions --project group/repo --mr_iid 42
+uv run ../glab/scripts/glab_tool.py get_mr --project group/repo --mr_iid 42
+uv run ../glab/scripts/glab_tool.py get_mr_discussions --project group/repo --mr_iid 42
 ```
 
-(First-time setup, once per environment: `pip install -r
-../glab/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../glab/requirements.txt`.)
 
 Given an MR URL like `https://host/group/sub/repo/-/merge_requests/42`,
 `--project` is `group/sub/repo` (everything between the host and `/-/`)

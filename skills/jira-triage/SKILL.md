@@ -6,7 +6,7 @@ description: >-
   readiness, and which ones haven't been broken into subtasks yet and need
   manual triage. Use for "which tasks have no subtasks yet", "which need
   frontend vs backend", "which stories still need triage".
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -33,10 +33,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py triage [--project PAY] [--parent_issue_types Story,Bug,Task]
+uv run ../jira/scripts/jira_tool.py triage [--project PAY] [--parent_issue_types Story,Bug,Task]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 ## Why this exists
 
@@ -89,7 +90,7 @@ Each returned story has:
     confidence as a `has_frontend_subtask`/`has_backend_subtask` fact.
 - **"Design/Figma ready?"** isn't part of this tool's output (Figma link
   fields are instance-specific custom fields) -- run `list_fields` (via
-  the `jira` skill's CLI, `python3 ../jira/scripts/jira_tool.py
+  the `jira` skill's CLI, `uv run ../jira/scripts/jira_tool.py
   list_fields`) to find the field id, then `search --fields <id>` per
   story, or read it from `description` if the link is embedded in text.
 

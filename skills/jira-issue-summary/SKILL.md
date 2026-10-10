@@ -4,7 +4,7 @@ description: >-
   Full context for one Jira issue: fields, comments, worklogs, changelog,
   and links, as one document. Use for "summarize PAY-123" or "what's the
   status of PAY-123".
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -28,10 +28,11 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py issue_summary --issue_key PAY-123 [--sections issue,worklogs]
+uv run ../jira/scripts/jira_tool.py issue_summary --issue_key PAY-123 [--sections issue,worklogs]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key` is required. Prints one JSON document combining fields,
 comments, worklogs, changelog, and links. Never invent or fabricate

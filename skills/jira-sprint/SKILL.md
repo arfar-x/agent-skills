@@ -3,7 +3,7 @@ name: jira-sprint
 description: >-
   Active sprint, board, dates, and goal. Use for "what's the current
   sprint", "when does this sprint end", "what's the sprint goal".
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -30,10 +30,11 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py sprint [--board_id 42] [--project PAY]
+uv run ../jira/scripts/jira_tool.py sprint [--board_id 42] [--project PAY]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 Resolves a board scoped to `--project` (or `JIRA_DEFAULT_PROJECT` if
 omitted) so this reports the sprint for the project actually being

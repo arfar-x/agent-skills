@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "requests>=2.31,<3",
+#   "urllib3>=1.26,<3",
+# ]
+# ///
 """Command-line dispatcher for the Jira Assistant skill's tools.
 
 Hermes invokes skills by running shell commands (via its `terminal` /

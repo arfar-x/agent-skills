@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "telethon>=1.36,<2",
+# ]
+# ///
 """Interactive, human-run, one-time (per TTL) Telegram login.
 
 **This script is not part of the agent's tool surface.** It is never

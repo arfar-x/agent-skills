@@ -5,7 +5,7 @@ description: >-
   Use to resolve a person's name (e.g. "John") into the account_id JQL and
   create_issue/edit_issue need for assignee filters/fields -- never guess
   or invent an account_id.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,10 +32,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py search_users --query john [--project PAY] [--all_projects]
+uv run ../jira/scripts/jira_tool.py search_users --query john [--project PAY] [--all_projects]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 ## Why this exists
 

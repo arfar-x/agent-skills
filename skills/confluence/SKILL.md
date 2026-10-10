@@ -7,7 +7,7 @@ description: >-
   structured Confluence tools and reasoning over their JSON output,
   never by guessing or inventing page content. Use whenever the user
   asks about Confluence pages, spaces, comments, or documentation.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -60,10 +60,11 @@ never summarizes, explains, or reasons. **All reasoning is your job.**
 Run it from this skill's directory:
 
 ```
-python3 scripts/confluence_tool.py <tool> [--flags...]
+uv run scripts/confluence_tool.py <tool> [--flags...]
 ```
 
-(First-time setup, once per environment: `pip install -r requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r requirements.txt`.)
 
 ## Core rules
 
@@ -145,55 +146,55 @@ python3 scripts/confluence_tool.py <tool> [--flags...]
 
 ```bash
 # Fetch one page by its content id (body, version, space, ancestors, history)
-python3 scripts/confluence_tool.py get_page --page_id 12345678
+uv run scripts/confluence_tool.py get_page --page_id 12345678
 
 # Resolve a page by its space + exact title -- the common case when a
 # user names a page by what it's called, not its numeric id
-python3 scripts/confluence_tool.py get_page_by_title --space_key ENG --title "Onboarding"
+uv run scripts/confluence_tool.py get_page_by_title --space_key ENG --title "Onboarding"
 
 # Arbitrary CQL search. --include_body opts into fetching each result's
 # body text (off by default -- rule 8)
-python3 scripts/confluence_tool.py search --cql "space = ENG AND type = page AND text ~ 'onboarding'" \
+uv run scripts/confluence_tool.py search --cql "space = ENG AND type = page AND text ~ 'onboarding'" \
   [--max_results 25] [--include_body]
 
 # Enumerate every space visible to the authenticated user
-python3 scripts/confluence_tool.py list_spaces
+uv run scripts/confluence_tool.py list_spaces
 
 # Fetch one space's identity and description
-python3 scripts/confluence_tool.py get_space --space_key ENG
+uv run scripts/confluence_tool.py get_space --space_key ENG
 
 # Every comment / attachment (metadata only) / direct child page / label on a page
-python3 scripts/confluence_tool.py get_comments --page_id 12345678
-python3 scripts/confluence_tool.py get_attachments --page_id 12345678
-python3 scripts/confluence_tool.py get_children --page_id 12345678
-python3 scripts/confluence_tool.py get_labels --page_id 12345678
+uv run scripts/confluence_tool.py get_comments --page_id 12345678
+uv run scripts/confluence_tool.py get_attachments --page_id 12345678
+uv run scripts/confluence_tool.py get_children --page_id 12345678
+uv run scripts/confluence_tool.py get_labels --page_id 12345678
 
 # Full context for one page in a single call: content, comments,
 # attachments, labels, children. --sections limits which parts to fetch
-python3 scripts/confluence_tool.py page_summary --page_id 12345678 [--sections page,comments]
+uv run scripts/confluence_tool.py page_summary --page_id 12345678 [--sections page,comments]
 
 # Pages the current user authored, most recently modified first
-python3 scripts/confluence_tool.py my_pages [--max_results 25]
+uv run scripts/confluence_tool.py my_pages [--max_results 25]
 
 # Create a page (write, gated -- see rule 3). --body_storage is
 # Confluence storage-format XHTML, not Markdown (rule 4)
-python3 scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
+uv run scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
   --body_storage "<p>Content here.</p>" [--parent_id 12345678] --confirm
 
 # Update a page's title and/or content (write, gated). Version is
 # resolved and incremented automatically -- never pass one yourself
-python3 scripts/confluence_tool.py update_page --page_id 12345678 \
+uv run scripts/confluence_tool.py update_page --page_id 12345678 \
   [--title "New Title"] [--body_storage "<p>New content.</p>"] --confirm
 
 # Permanently delete a page (write, gated, irreversible -- see rule 3)
-python3 scripts/confluence_tool.py delete_page --page_id 12345678 --confirm
+uv run scripts/confluence_tool.py delete_page --page_id 12345678 --confirm
 
 # Add a comment (write, gated)
-python3 scripts/confluence_tool.py add_comment --page_id 12345678 --body_storage "<p>Looks good.</p>" --confirm
+uv run scripts/confluence_tool.py add_comment --page_id 12345678 --body_storage "<p>Looks good.</p>" --confirm
 
 # Add / remove a label (write, gated)
-python3 scripts/confluence_tool.py add_label --page_id 12345678 --label onboarding --confirm
-python3 scripts/confluence_tool.py remove_label --page_id 12345678 --label onboarding --confirm
+uv run scripts/confluence_tool.py add_label --page_id 12345678 --label onboarding --confirm
+uv run scripts/confluence_tool.py remove_label --page_id 12345678 --label onboarding --confirm
 ```
 
 ## Examples

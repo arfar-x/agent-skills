@@ -4,7 +4,7 @@ description: >-
   Lists GitLab merge requests -- in one project or instance-wide -- by state,
   scope, reviewer, or search text. Use for "my open MRs", "MRs waiting on my
   review", "find the MR about X". Read-only.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -29,12 +29,12 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../glab/scripts/glab_tool.py list_mrs [--project group/repo] [--state opened] \
+uv run ../glab/scripts/glab_tool.py list_mrs [--project group/repo] [--state opened] \
   [--scope assigned_to_me] [--reviewer_me] [--search "text"] [--max_results 20]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../glab/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../glab/requirements.txt`.)
 
 `--state` is one of `opened|closed|merged|locked|all`; `--scope` is one of
 `created_by_me|assigned_to_me|all`. With no `--project` (and no

@@ -4,7 +4,7 @@ description: >-
   Permanently deletes a Confluence page. Use for "delete page X" or
   "remove the old draft page". This is a destructive write operation
   gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -35,11 +35,11 @@ required_environment_variables:
 directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py delete_page --page_id 12345678 --confirm
+uv run ../confluence/scripts/confluence_tool.py delete_page --page_id 12345678 --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 `--page_id` is required. This refuses to execute unless run with
 `--confirm` (enforced in code, not just prompted).

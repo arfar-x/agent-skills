@@ -5,7 +5,7 @@ description: >-
   for "what's on the board", "how many tickets are in review", or any
   "current sprint" question that turns out to be about a kanban project
   (no sprints) instead.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,10 +32,11 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py kanban_status [--board_id 42] [--project PAY]
+uv run ../jira/scripts/jira_tool.py kanban_status [--board_id 42] [--project PAY]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 Resolves a board scoped to `--project` (or `JIRA_DEFAULT_PROJECT` if
 omitted) so this reports the board for the project actually being worked

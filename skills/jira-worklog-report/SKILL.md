@@ -5,7 +5,7 @@ description: >-
   compared against each touched issue's original estimate. Use for "how
   many hours did I log this week", "how much more than estimated did I
   work", "what did I get stuck on recently".
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -29,10 +29,11 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py worklog_report [--since -14d] [--until 2026-07-20] [--max_issues 50]
+uv run ../jira/scripts/jira_tool.py worklog_report [--since -14d] [--until 2026-07-20] [--max_issues 50]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--since`/`--until` accept a JQL-style relative date (`-14d`, `-2w`) or an
 ISO date/datetime; `--since` defaults to 14 days ago, `--until` defaults to

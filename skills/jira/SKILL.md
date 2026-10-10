@@ -7,7 +7,7 @@ description: >-
   and reasoning over their JSON output, never by guessing or inventing
   ticket data. Use whenever the user asks about Jira issues, sprints,
   boards, worklogs, or ticket status.
-version: 1.2.0
+version: 1.3.0
 metadata:
   category: software-development
   hermes:
@@ -59,10 +59,11 @@ summarizes, prioritizes, or explains. **All reasoning is your job.**
 Run it from this skill's directory:
 
 ```
-python3 scripts/jira_tool.py <tool> [--flags...]
+uv run scripts/jira_tool.py <tool> [--flags...]
 ```
 
-(First-time setup, once per environment: `pip install -r requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r requirements.txt`.)
 
 ## Core rules
 
@@ -327,64 +328,64 @@ python3 scripts/jira_tool.py <tool> [--flags...]
 # Use these instead of fetching everything and post-processing yourself --
 # e.g. "what's the last task I worked on" is --order_by "updated DESC"
 # --max_results 1, not a second script.
-python3 scripts/jira_tool.py my_work [--project PAY] [--all_projects] \
+uv run scripts/jira_tool.py my_work [--project PAY] [--all_projects] \
   [--order_by "updated DESC"] [--max_results 1]
 
 # Full context for one issue: fields, comments, worklogs, changelog, links.
 # --sections limits which parts to fetch/return (default: all)
-python3 scripts/jira_tool.py issue_summary --issue_key PAY-123 [--sections issue,worklogs]
+uv run scripts/jira_tool.py issue_summary --issue_key PAY-123 [--sections issue,worklogs]
 
 # Blocking status + reasons for one issue
-python3 scripts/jira_tool.py blockers --issue_key PAY-123
+uv run scripts/jira_tool.py blockers --issue_key PAY-123
 
 # Arbitrary JQL search. --only asks for exactly the named fields you need
 # instead of everything (default: everything except description and
 # time-tracking fields); "blocked" is always computed and returned.
 # --only's names and --jql's field names are DIFFERENT vocabularies --
 # see rule 11 (e.g. --jql uses "due", --only uses "due_date")
-python3 scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" \
+uv run scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" \
   [--fields customfield_10056] [--only summary,status,priority]
 
 # Enumerate every field (incl. custom fields) to discover a custom field's id by name
-python3 scripts/jira_tool.py list_fields
+uv run scripts/jira_tool.py list_fields
 
 # Current local wall-clock time. No Jira call. Run this before resolving
 # any relative date ("now", "yesterday", "last Tuesday") for a write --
 # your own sense of the time is often stale or absent (rule 5). Its "now"
 # field is a full ISO timestamp that --date accepts verbatim.
-python3 scripts/jira_tool.py now
+uv run scripts/jira_tool.py now
 
 # Reference snapshot of a project: issue types, workflow statuses (overall
 # and per issue type), components, instance priorities, assignable users,
 # and a sample of labels in use -- call once per project, remember the
 # result if you can (rule 12), don't re-fetch every turn
-python3 scripts/jira_tool.py project_context [--project PAY]
+uv run scripts/jira_tool.py project_context [--project PAY]
 
 # Look up a user by name/email fragment, to get an account_id for JQL
 # assignee filters or create_issue/edit_issue's --assignee_account_id.
 # --project scopes to that project's assignable users (narrower, resolves
 # common-name collisions) -- falls back to JIRA_DEFAULT_PROJECT, then
 # an unscoped instance-wide search
-python3 scripts/jira_tool.py search_users --query john [--project PAY] [--all_projects]
+uv run scripts/jira_tool.py search_users --query john [--project PAY] [--all_projects]
 
 # Active sprint / board / dates / goal. Board is resolved scoped to
 # --project (or JIRA_DEFAULT_PROJECT) by default (rule 14). If the
 # resolved board is kanban (no sprints), "sprint" comes back null with a
 # "note" pointing at kanban_status instead.
-python3 scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
+uv run scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
 
 # Kanban board's columns and per-column issue counts -- the kanban
 # equivalent of "sprint" for boards with no active sprint. Board scoped
 # the same way as sprint (rule 14).
-python3 scripts/jira_tool.py kanban_status [--project PAY] [--board_id 42]
+uv run scripts/jira_tool.py kanban_status [--project PAY] [--board_id 42]
 
 # Your logged time over a date range, vs. each issue's original estimate
-python3 scripts/jira_tool.py worklog_report --since -14d [--until 2026-07-20] [--max_issues 50]
+uv run scripts/jira_tool.py worklog_report --since -14d [--until 2026-07-20] [--max_issues 50]
 
 # Log time (write, gated -- see rule 5); --date defaults to now, accepts
 # a relative offset ("-1d"), ISO date, or ISO datetime -- resolve
 # relative day-names to an actual date yourself first (rule 5)
-python3 scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
+uv run scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
   --description "implementing validation" [--date 2026-07-20] --confirm
 
 # Move to a status (write, gated -- see rule 5). --status matches
@@ -393,33 +394,33 @@ python3 scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
 # through directly instead of asking them for Jira's exact status name
 # or checking project_context/kanban_status first; if it doesn't match,
 # the error itself lists every real available transition to retry with.
-python3 scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
+uv run scripts/jira_tool.py transition --issue_key PAY-123 --status Review --confirm
 
 # Fix a worklog's duration/description/date (write, gated -- see rule 5);
 # find --worklog_id via issue_summary's worklogs[].id
-python3 scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
+uv run scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
   [--duration 2h] [--description "..."] [--date 2026-07-20] --confirm
 
 # Permanently delete a worklog entry (write, gated, irreversible -- see rule 5)
-python3 scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
+uv run scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
 
 # Group unresolved stories/bugs/tasks with their labeled subtasks, for
 # frontend/backend/design-readiness triage -- --project falls back to
 # JIRA_DEFAULT_PROJECT if omitted
-python3 scripts/jira_tool.py triage [--project PAY] [--parent_issue_types Story,Bug,Task]
+uv run scripts/jira_tool.py triage [--project PAY] [--parent_issue_types Story,Bug,Task]
 
 # Create a new issue or subtask (write, gated -- see rule 5); pass
 # --issue_type Sub-task and --parent_key for a subtask, same tool either way.
 # --custom_fields is a JSON object of customfield_NNNNN -> value, for any
 # field the project's screen requires beyond the named flags above --
 # resolve ids/shapes via list_fields first, never guess either (rule 9).
-python3 scripts/jira_tool.py create_issue --project PAY --summary "Fix checkout crash" \
+uv run scripts/jira_tool.py create_issue --project PAY --summary "Fix checkout crash" \
   --issue_type Bug [--description "..."] [--parent_key PAY-100] [--labels Frontend,UX] \
   [--assignee_account_id ...] [--priority High] [--components API] \
   [--custom_fields '{"customfield_10201": "..."}'] --confirm
 
 # Update fields on an existing issue or subtask (write, gated -- see rule 5)
-python3 scripts/jira_tool.py edit_issue --issue_key PAY-123 \
+uv run scripts/jira_tool.py edit_issue --issue_key PAY-123 \
   [--summary "..."] [--description "..."] [--labels Frontend] \
   [--assignee_account_id ...] [--priority High] [--components API] \
   [--custom_fields '{"customfield_10201": "..."}'] --confirm

@@ -4,7 +4,7 @@ description: >-
   Returns the per-file unified diffs of a GitLab merge request, optionally for
   one file. Use for "show me the changes in MR 42" or as the input to a code
   review of a remote MR. Read-only.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -29,11 +29,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../glab/scripts/glab_tool.py get_mr_diff --project group/repo --mr_iid 42 [--file_path src/app.py]
+uv run ../glab/scripts/glab_tool.py get_mr_diff --project group/repo --mr_iid 42 [--file_path src/app.py]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../glab/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../glab/requirements.txt`.)
 
 Each file entry has `old_path`, `new_path`, and a unified `diff` of
 hunks. GitLab may omit the diff of a very large file -- an entry with an

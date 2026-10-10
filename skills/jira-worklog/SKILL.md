@@ -4,7 +4,7 @@ description: >-
   Logs time against a Jira issue. Use for "log 2h on PAY-123" or "I
   spent 30 minutes on PAY-123 today". This is a write operation gated
   behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -31,10 +31,11 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h --description "implementing validation" [--date 2026-07-20] --confirm
+uv run ../jira/scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h --description "implementing validation" [--date 2026-07-20] --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key`, `--duration` (Jira-style, e.g. `2h`, `1d 30m`), and
 `--description` are required. This refuses to execute unless run with

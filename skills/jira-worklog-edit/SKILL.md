@@ -5,7 +5,7 @@ description: >-
   date. Use for "fix that worklog", "I logged the wrong date, change it
   to Tuesday", "change the description on that time log". This is a
   write operation gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,11 +32,12 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
+uv run ../jira/scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
   [--duration 2h] [--description "..."] [--date 2026-07-20] --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key` and `--worklog_id` are required; at least one of
 `--duration`/`--description`/`--date` must also be given (omitted fields

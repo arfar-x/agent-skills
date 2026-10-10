@@ -5,7 +5,7 @@ description: >-
   existing page. Use for "create a page in X called Y" or "add a new
   page under Z". This is a write operation gated behind explicit user
   confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -35,12 +35,12 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
+uv run ../confluence/scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
   --body_storage "<p>Content here.</p>" [--parent_id 12345678] --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 `--space_key`, `--title`, and `--body_storage` are required.
 `--body_storage` must be Confluence **storage-format XHTML** -- e.g.

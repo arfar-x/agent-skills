@@ -9,7 +9,7 @@ description: >-
   step (branch creation, plan approval, commit, PR). Use when the user
   asks to implement a ticket, start work on a Jira issue, or turn a
   ticket into code.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -63,10 +63,11 @@ Fetch the ticket using this repo's own `jira` toolset (see
 `../jira/SKILL.md`/`../jira/README.md` for setup and full details):
 
 ```bash
-python3 ../jira/scripts/jira_tool.py issue_summary --issue_key TASK-XXX
+uv run ../jira/scripts/jira_tool.py issue_summary --issue_key TASK-XXX
 ```
 
-(First-time setup, once per environment: `pip install -r
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r
 ../jira/requirements.txt`.) This returns the issue plus comments,
 worklogs, changelog, and linked-issue references in one document --
 extract Summary/Module/Type/ACs from it. If a project instead documents

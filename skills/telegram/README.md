@@ -126,8 +126,11 @@ logout (explicit tool, or run login.py again)
 Run `scripts/login.py` yourself, from this skill's directory:
 
 ```bash
-python3 scripts/login.py
+uv run scripts/login.py
 ```
+
+(Or `python3 scripts/login.py` if `uv` isn't installed and Telethon is
+already installed -- see "Installation" below.)
 
 It refuses outright if `stdin` isn't a real terminal -- nothing (an
 agent, a script, a pipe) can drive it. If it reports that a chat_id in
@@ -283,8 +286,12 @@ in general; the steps below cover only what's specific to this skill.
    guarantee, and how to install this skill anyway once you've read the
    DISCLAIMER above.
 
-2. **Install Telethon** into whatever environment actually executes
-   `python3` for this skill's CLI:
+2. **Install Telethon** -- or skip this step if `uv` is installed:
+   `uv run` reads the dependencies declared at the top of
+   `scripts/telegram_tool.py`/`scripts/login.py` and installs them on
+   first use. Without `uv`, install them into whatever environment
+   actually executes `python3` for this skill's CLI, either with
+   `make install-skill-deps` (see the top-level `README.md`) or directly:
 
    ```bash
    pip install -r skills/telegram/requirements.txt

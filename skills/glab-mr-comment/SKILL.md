@@ -6,7 +6,7 @@ description: >-
   Routes to add_mr_note vs add_mr_discussion from what's being asked. Use for
   "comment on MR 42", "leave this note on line 10 of app.py". Write
   operations, gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -36,16 +36,16 @@ required_environment_variables:
 ```bash
 # (append --confirm only after the user's explicit yes -- see below)
 # General comment on the MR as a whole
-python3 ../glab/scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 \
+uv run ../glab/scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 \
   --body "Overall looks good." [--draft]
 
 # Inline comment on a diff line (new_line: added/unchanged line; old_line: removed line)
-python3 ../glab/scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \
+uv run ../glab/scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \
   --file_path src/app.py --new_line 10 --body "This can be None here." [--draft]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../glab/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../glab/requirements.txt`.)
 
 Bodies are GitLab Markdown. Choose the tool from the request: a comment
 tied to a file and line is `add_mr_discussion`; anything else is

@@ -5,7 +5,7 @@ description: >-
   Use for "what spaces are there", "what's the key for the engineering
   space", or before creating a page when the destination space key
   isn't already known. This is a read-only operation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,11 +32,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py list_spaces [--max_results 100]
+uv run ../confluence/scripts/confluence_tool.py list_spaces [--max_results 100]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 Each space's `key` is what every other Confluence tool needs as
 `--space_key` -- resolve it here rather than guessing one from a

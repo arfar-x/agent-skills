@@ -70,7 +70,7 @@ Per toolset `<toolset>` (e.g. `jira`):
   env-based config), `tools/` (thin per-action entry points),
   `scripts/<toolset>_tool.py` (CLI dispatcher), `tests/`.
 - `skills/<toolset>-*/` -- thin `SKILL.md`-only skills, one per action,
-  that shell out to `../<toolset>/scripts/<toolset>_tool.py`. They exist
+  that shell out to `uv run ../<toolset>/scripts/<toolset>_tool.py`. They exist
   purely so each action gets its own Hermes slash command; they contain
   no Python of their own and nothing to test.
 
@@ -101,6 +101,19 @@ cd skills/<toolset>
 pip install -r requirements.txt pytest
 pytest -q
 ```
+
+**A toolset's Python dependencies live in two places that must match:**
+its `requirements.txt` (for `pip install -r`, the tests, `mcp-server`,
+and `make install-skill-deps`) and a PEP 723 `# /// script` block at the
+top of every `scripts/*.py` entry point (for `uv run`, which every
+`SKILL.md` invokes the CLI with so a `npx skills` install needs no
+separate install step). Change both in the same edit;
+`scripts/tests/test_install_skill_deps.py` fails if they drift, and also
+covers the `make install-skill-deps` installer itself
+(`pytest -q scripts/tests` from the repo root). Every `SKILL.md`
+invocation stays runnable as plain `python3` too -- keep the shebang
+`#!/usr/bin/env python3`, and keep each skill's one-line note that
+`python3` works in place of `uv run` once the dependencies are installed.
 
 When changing an action's CLI flags or output, update every
 `<toolset>-*/SKILL.md` that documents that action's invocation -- they

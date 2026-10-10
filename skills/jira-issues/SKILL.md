@@ -5,7 +5,7 @@ description: >-
   results. Use for "find issues where...", "which of my tickets haven't
   been updated recently", or any query not covered by a more specific
   Jira skill.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -29,11 +29,12 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" \
+uv run ../jira/scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" \
   [--max_results 100] [--only summary,status,priority] [--fields customfield_10056]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--jql` is required. Prints one JSON document: structured issue results
 matching the query. `key`, `url`, `custom_fields`, and `blocked` are
@@ -57,7 +58,7 @@ this JSON.
   IDs in addition to `--only` -- use it for instance-specific custom
   fields, e.g. a "Figma Link" field, always surfaced in `custom_fields`.
   Discover its ID first by running `list_fields` (via the `jira` skill's
-  CLI, `python3 ../jira/scripts/jira_tool.py list_fields`); never guess a
+  CLI, `uv run ../jira/scripts/jira_tool.py list_fields`); never guess a
   `customfield_NNNNN` id.
 - **`--only`'s field names and `--jql`'s field names are different
   vocabularies -- don't mix them up.** `--only` uses this skill's own

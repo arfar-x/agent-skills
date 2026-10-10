@@ -7,7 +7,7 @@ description: >-
   hour", "after that I spent 3h on Y", "log my day", "what have I worked
   on today". Finds the matching issues, separates interruptions from
   focused work, and writes the time to Jira one confirmation at a time.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -37,10 +37,11 @@ required_environment_variables:
 **Read + write (writes gated).** Run commands from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py now
+uv run ../jira/scripts/jira_tool.py now
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 ## What this is
 
@@ -89,7 +90,7 @@ describes. You do not otherwise know the current time, and every later
 calculation depends on this one being real:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py now
+uv run ../jira/scripts/jira_tool.py now
 ```
 
 **Don't wait for the user to state a clock time, and don't ask for
@@ -141,7 +142,7 @@ than being told their work doesn't exist. Then **ask whether to create
 it**. Only if they say yes:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py create_issue --project PAY \
+uv run ../jira/scripts/jira_tool.py create_issue --project PAY \
   --summary "..." --issue_type Task --confirm
 ```
 
@@ -209,7 +210,7 @@ When the user asks to log the day (or says they're done):
    then move to the next:
 
    ```bash
-   python3 ../jira/scripts/jira_tool.py worklog --issue_key PAY-121 \
+   uv run ../jira/scripts/jira_tool.py worklog --issue_key PAY-121 \
      --duration 3h --description "json log support" \
      --date 2026-07-25T10:30:00+03:30 --confirm
    ```

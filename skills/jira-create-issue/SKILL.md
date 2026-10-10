@@ -5,7 +5,7 @@ description: >-
   a subtask under one. Use for "create a bug for X", "add a frontend
   subtask under PAY-100". This is a write operation gated behind explicit
   user confirmation.
-version: 1.1.0
+version: 1.1.1
 metadata:
   category: software-development
   hermes:
@@ -35,7 +35,7 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py create_issue --project PAYKAN --summary "Fix checkout crash" \
+uv run ../jira/scripts/jira_tool.py create_issue --project PAYKAN --summary "Fix checkout crash" \
   --issue_type Bug --confirm
 ```
 
@@ -43,18 +43,19 @@ Creating a subtask under an existing parent -- same tool, add `--parent_key`
 and use `--issue_type Sub-task`:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py create_issue --project PAYKAN --summary "Build checkout UI" \
+uv run ../jira/scripts/jira_tool.py create_issue --project PAYKAN --summary "Build checkout UI" \
   --issue_type Sub-task --parent_key PAYKAN-100 --labels Frontend --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--project`, `--summary`, and `--issue_type` are required. `--issue_type
 Sub-task` requires `--parent_key`. Optional: `--description`, `--labels`
 (comma-separated), `--assignee_account_id`, `--priority`, `--components`
 (comma-separated), `--custom_fields` (a JSON object of `customfield_NNNNN
 -> value` for any field this project's create screen requires beyond the
-flags above -- resolve ids/shapes via `python3 ../jira/scripts/jira_tool.py
+flags above -- resolve ids/shapes via `uv run ../jira/scripts/jira_tool.py
 list_fields` first, never guess either).
 
 ## Check for a remembered convention first

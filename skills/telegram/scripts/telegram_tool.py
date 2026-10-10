@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "telethon>=1.36,<2",
+# ]
+# ///
 """Command-line dispatcher for the Telegram skill's tools.
 
 Mirrors `skills/jira/scripts/jira_tool.py`'s design: every tool in `tools/`

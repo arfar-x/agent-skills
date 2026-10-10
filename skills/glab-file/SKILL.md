@@ -4,7 +4,7 @@ description: >-
   Reads a file, or lists a directory, from a GitLab project's repository at a
   branch/tag/commit. Use for "show me src/app.py on main", "what's in the
   docs folder of group/repo". Read-only.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -29,12 +29,12 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../glab/scripts/glab_tool.py get_file --project group/repo --file_path src/app.py --ref main
-python3 ../glab/scripts/glab_tool.py get_tree --project group/repo [--path docs] [--ref main] [--recursive]
+uv run ../glab/scripts/glab_tool.py get_file --project group/repo --file_path src/app.py --ref main
+uv run ../glab/scripts/glab_tool.py get_tree --project group/repo [--path docs] [--ref main] [--recursive]
 ```
 
-(First-time setup, once per environment: `pip install -r
-../glab/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../glab/requirements.txt`.)
 
 `--ref` is required for `get_file` (branch, tag, or commit SHA); for an
 MR's version of a file, use the MR's `diff_refs.head_sha` from

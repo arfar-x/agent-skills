@@ -4,7 +4,7 @@ description: >-
   Lists unresolved Jira issues assigned to the current user, ordered by
   priority and recency. Use for "what should I work on next", "what are
   my open tickets", "summarize my tickets".
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -28,11 +28,12 @@ required_environment_variables:
 Read-only. Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py my_work [--project PAY] [--all_projects] \
+uv run ../jira/scripts/jira_tool.py my_work [--project PAY] [--all_projects] \
   [--order_by "priority DESC, updated DESC"] [--max_results 100]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 Scoped to a project by default -- `--project`, or `JIRA_DEFAULT_PROJECT`
 if `--project` is omitted -- so results stay to the project actually

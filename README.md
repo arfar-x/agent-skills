@@ -52,11 +52,47 @@ npx skills add arfar-x/agent-skills -a claude-code --skill jira
 ```
 
 This only fetches `SKILL.md` and its bundled files -- it does **not**
-install Python dependencies or set environment variables. After
-installing a toolset, still `pip install -r skills/<toolset>/requirements.txt`
-(into whatever environment your agent runtime executes shell commands
-in) and export that toolset's required env vars -- see its own
-`README.md` (e.g. `skills/jira/README.md`) for the exact config table.
+set environment variables, so export each installed toolset's required
+env vars yourself -- see its own `README.md` (e.g.
+`skills/jira/README.md`) for the exact config table. Python dependencies
+are covered in the next section.
+
+### Python dependencies
+
+A toolset's skills run its CLI as `uv run scripts/<toolset>_tool.py ...`.
+Each CLI entry point declares its own dependencies inline ([PEP
+723](https://peps.python.org/pep-0723/) inline script metadata), so with
+[`uv`](https://docs.astral.sh/uv/) installed there is no separate install
+step: the first run resolves the dependencies into `uv`'s cache, and
+later runs reuse them.
+
+Without `uv`, the same CLI runs as `python3 scripts/<toolset>_tool.py
+...` (the inline block is only comments to Python), but its
+dependencies must then already be installed for that interpreter. From
+a clone of this repo, install them for every installed skill at once:
+
+```bash
+make install-skill-deps
+```
+
+It asks `npx skills ls --json` which skills are installed (globally and
+in the current directory's project), keeps those with a
+`requirements.txt`, and installs them all in one `pip install` run.
+Options:
+
+- `PYTHON=/path/to/venv/bin/python` -- the interpreter to install into;
+  use the one your agent runs the skills with. Defaults to `python3`. A
+  distro-managed `python3` usually refuses a system-wide install
+  ("externally-managed-environment"), so point this at a virtualenv.
+- `SKILLS_DIR="~/.claude/skills ~/.agents/skills"` -- scan these
+  directories instead of asking `npx skills` (e.g. skills you copied in
+  by hand, or no `npx` available).
+- `PIP_ARGS=--user` -- extra arguments for the install command.
+- `DRY_RUN=1` -- list what would be installed, install nothing.
+
+Re-run it after installing a new toolset or after `npx skills update`
+changes a `requirements.txt`. It's `scripts/install_skill_deps.py`
+underneath (stdlib only), which you can also run directly.
 
 **Installing an internal skill** (see "Internal skills" below --
 `telegram` is the current example): these are excluded from `--list` and
@@ -395,14 +431,17 @@ follow the same pattern the Jira toolset already uses:
 1. `skills/<toolset>/` -- the shared implementation: a `lib/` (client,
    auth/config from env vars), `tools/` (one module per action), a
    `scripts/<toolset>_tool.py` CLI dispatcher, a `tests/` suite, its own
-   `requirements.txt`, and a `README.md` documenting its config, env
+   `requirements.txt` (repeated as a PEP 723 `# /// script` block at the
+   top of every `scripts/*.py` entry point -- see "Python dependencies"
+   above; `scripts/tests/` checks the two stay identical), and a
+   `README.md` documenting its config, env
    vars, and (per "Layout and convention" above) its own thin-skill
    catalog. This directory's own `SKILL.md` can work standalone as a
    single do-everything skill.
 2. `skills/<toolset>-<action>/` -- one thin `SKILL.md`-only directory
    per action/tool (optional -- see "Layout and convention" above for
    when a toolset should skip this), each shelling out to
-   `../<toolset>/scripts/<toolset>_tool.py <action> [flags]`.
+   `uv run ../<toolset>/scripts/<toolset>_tool.py <action> [flags]`.
 3. List every env var the toolset's code actually reads in each skill's
    `required_environment_variables` frontmatter (Hermes-only, but
    harmless elsewhere -- see "Frontmatter compatibility" above).

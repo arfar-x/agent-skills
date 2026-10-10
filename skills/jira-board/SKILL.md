@@ -7,7 +7,7 @@ description: >-
   Use for "what's going on with my board", "what's the current sprint",
   "how's the board looking" when you're not sure which type of project
   this is.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -35,10 +35,11 @@ Read-only. This skill routes to whichever of `sprint`/`kanban_status` fits
 -- run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
+uv run ../jira/scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 ## Board type comes from memory, not a guess
 
@@ -55,9 +56,9 @@ type up first:
    question of which command to run.
    ```bash
    # Scrum:
-   python3 ../jira/scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
+   uv run ../jira/scripts/jira_tool.py sprint [--project PAY] [--board_id 42]
    # Kanban:
-   python3 ../jira/scripts/jira_tool.py kanban_status [--project PAY] [--board_id 42]
+   uv run ../jira/scripts/jira_tool.py kanban_status [--project PAY] [--board_id 42]
    ```
 2. **Type not known yet for this project:** run `sprint` -- this is the
    first real request for this project's board, not a guess. Its result

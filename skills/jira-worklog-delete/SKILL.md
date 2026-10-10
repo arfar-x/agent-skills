@@ -4,7 +4,7 @@ description: >-
   Permanently deletes a Jira worklog entry. Use for "delete that
   worklog", "remove the time I logged on PAY-123 by mistake". This is a
   destructive write operation gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -31,10 +31,11 @@ required_environment_variables:
 **Write, gated, destructive.** Run from this skill's directory:
 
 ```bash
-python3 ../jira/scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
+uv run ../jira/scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key` and `--worklog_id` are required. Find `--worklog_id` via
 the `jira-issue-summary` skill's `worklogs[].id`, or the id a prior

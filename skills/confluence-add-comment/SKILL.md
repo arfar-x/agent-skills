@@ -4,7 +4,7 @@ description: >-
   Adds a comment to a Confluence page. Use for "leave a comment on page
   X saying Y" or "comment on this page". This is a write operation
   gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -34,12 +34,12 @@ required_environment_variables:
 **Write, gated.** Run from this skill's directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py add_comment --page_id 12345678 \
+uv run ../confluence/scripts/confluence_tool.py add_comment --page_id 12345678 \
   --body_storage "<p>Looks good.</p>" --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 `--page_id` and `--body_storage` are required. `--body_storage` must be
 Confluence storage-format XHTML (e.g. `<p>...</p>`), not Markdown or

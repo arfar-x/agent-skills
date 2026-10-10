@@ -7,7 +7,7 @@ description: >-
   being asked. Use for "log 2h on PAY-123", "fix that worklog, wrong
   day", "delete that worklog I logged by mistake". Write operations,
   gated behind explicit user confirmation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -50,19 +50,20 @@ skill's directory:
 
 ```bash
 # Log new time
-python3 ../jira/scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
+uv run ../jira/scripts/jira_tool.py worklog --issue_key PAY-123 --duration 2h \
   --description "implementing validation" [--date 2026-07-20] --confirm
 
 # Fix an existing entry (at least one of --duration/--description/--date;
 # omitted fields are left unchanged)
-python3 ../jira/scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
+uv run ../jira/scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \
   [--duration 2h] [--description "..."] [--date 2026-07-20] --confirm
 
 # Permanently delete an entry -- cannot be undone
-python3 ../jira/scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
+uv run ../jira/scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 --confirm
 ```
 
-(First-time setup, once per environment: `pip install -r ../jira/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--date` (log/edit) accepts a relative offset (`-1d`), an ISO date, or a
 full ISO datetime -- **resolve relative day-names ("last Tuesday",

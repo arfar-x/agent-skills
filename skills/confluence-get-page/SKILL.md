@@ -5,7 +5,7 @@ description: >-
   content id. Use for "what does page X say", "show me page 12345678",
   or as the first step in summarizing/editing a page once you know its
   id. This is a read-only operation.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -32,11 +32,11 @@ required_environment_variables:
 **Read-only.** Run from this skill's directory:
 
 ```bash
-python3 ../confluence/scripts/confluence_tool.py get_page --page_id 12345678
+uv run ../confluence/scripts/confluence_tool.py get_page --page_id 12345678
 ```
 
-(First-time setup, once per environment: `pip install -r
-../confluence/requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
 `--page_id` is required. If you only know a page's title and space
 (not its numeric id), use `get_page_by_title` on the parent

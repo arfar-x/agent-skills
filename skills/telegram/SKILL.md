@@ -8,7 +8,7 @@ description: >-
   search, reply to, forward, or send Telegram messages, or to download
   Telegram media. Never for any other messaging platform, and never to
   authenticate, log in, or handle a phone number/code/2FA password.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: productivity
   internal: true
@@ -64,10 +64,11 @@ A thin CLI wrapper (`scripts/telegram_tool.py`) around a Telethon user
 session. Run it from this skill's directory:
 
 ```
-python3 scripts/telegram_tool.py <tool> [--flags...]
+uv run scripts/telegram_tool.py <tool> [--flags...]
 ```
 
-(First-time setup, once per environment: `pip install -r requirements.txt`.
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r requirements.txt`.
 Then the user runs `scripts/login.py` themselves -- see rule 2.)
 
 Every tool prints one JSON document, success or failure. `"error"` means a
@@ -90,7 +91,8 @@ is asking, not failing.
    user for a phone number, login code, or 2FA password, and never
    accept one if offered. If a tool's result has `"error": {"type":
    "no_session"}` or `"session_expired"`, tell the user to run
-   `python3 scripts/login.py` themselves, interactively, and stop -- do
+   `uv run scripts/login.py` (or `python3 scripts/login.py`) themselves,
+   interactively, and stop -- do
    not attempt any workaround.
 3. **Never invent message content, a sender, or a timestamp.** Everything
    you state about a chat must come from a tool's JSON output.

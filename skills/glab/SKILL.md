@@ -7,7 +7,7 @@ description: >-
   structured GitLab tools and reasoning over their JSON output, never by
   guessing or inventing repository, file, or MR content. Use whenever the
   user asks about a GitLab project, file, or merge request.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -59,10 +59,11 @@ summarizes, explains, or reasons. **All reasoning is your job.**
 Run it from this skill's directory:
 
 ```
-python3 scripts/glab_tool.py <tool> [--flags...]
+uv run scripts/glab_tool.py <tool> [--flags...]
 ```
 
-(First-time setup, once per environment: `pip install -r requirements.txt`.)
+(`uv run` installs the dependencies on first use. Without `uv`, use
+`python3` in place of `uv run`, after a one-time `pip install -r requirements.txt`.)
 
 Authentication is a single `GITLAB_TOKEN` (a personal access token --
 scope `read_api` to read, `api` to post comments) acting on the user's
@@ -117,27 +118,27 @@ behalf; there is no username/password mode.
 
 ```bash
 # Who the token acts as
-python3 scripts/glab_tool.py whoami
+uv run scripts/glab_tool.py whoami
 
 # Project identity, default branch, URL
-python3 scripts/glab_tool.py get_project --project group/repo
-python3 scripts/glab_tool.py search_projects --search repo [--membership] [--max_results 20]
-python3 scripts/glab_tool.py list_branches --project group/repo [--search feat]
+uv run scripts/glab_tool.py get_project --project group/repo
+uv run scripts/glab_tool.py search_projects --search repo [--membership] [--max_results 20]
+uv run scripts/glab_tool.py list_branches --project group/repo [--search feat]
 
 # Repository content at a ref
-python3 scripts/glab_tool.py get_tree --project group/repo [--path src] [--ref main] [--recursive]
-python3 scripts/glab_tool.py get_file --project group/repo --file_path src/app.py --ref main [--max_bytes 200000]
+uv run scripts/glab_tool.py get_tree --project group/repo [--path src] [--ref main] [--recursive]
+uv run scripts/glab_tool.py get_file --project group/repo --file_path src/app.py --ref main [--max_bytes 200000]
 
 # Merge requests (read)
-python3 scripts/glab_tool.py list_mrs [--project group/repo] [--state opened|closed|merged|locked|all] \
+uv run scripts/glab_tool.py list_mrs [--project group/repo] [--state opened|closed|merged|locked|all] \
   [--scope created_by_me|assigned_to_me|all] [--reviewer_me] [--search "text"]
-python3 scripts/glab_tool.py get_mr --project group/repo --mr_iid 42
-python3 scripts/glab_tool.py get_mr_diff --project group/repo --mr_iid 42 [--file_path src/app.py]
-python3 scripts/glab_tool.py get_mr_discussions --project group/repo --mr_iid 42
+uv run scripts/glab_tool.py get_mr --project group/repo --mr_iid 42
+uv run scripts/glab_tool.py get_mr_diff --project group/repo --mr_iid 42 [--file_path src/app.py]
+uv run scripts/glab_tool.py get_mr_discussions --project group/repo --mr_iid 42
 
 # Comment on a merge request (write, gated -- see rule 3; append --confirm only after the user's yes)
-python3 scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 --body "..." [--draft]
-python3 scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \
+uv run scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 --body "..." [--draft]
+uv run scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \
   --file_path src/app.py --new_line 10 --body "..." [--draft]
 ```
 
