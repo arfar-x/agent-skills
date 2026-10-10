@@ -296,6 +296,24 @@ class GitLabClient:
         items = self._paginate(f"{self._mr_path(project, mr_iid)}/discussions", max_results=500)
         return [models.discussion(d) for d in items]
 
+    def _discussion_path(self, project: str, mr_iid: int, discussion_id: str) -> str:
+        return f"{self._mr_path(project, mr_iid)}/discussions/{quote(str(discussion_id), safe='')}"
+
+    def get_mr_discussion(self, project: str, mr_iid: int, discussion_id: str) -> Dict[str, Any]:
+        return models.discussion(self._request("GET", self._discussion_path(project, mr_iid, discussion_id)))
+
+    def get_mr_discussion_note(self, project: str, mr_iid: int, discussion_id: str, note_id: int) -> Dict[str, Any]:
+        """Return one note of a discussion, or raise 404 if the discussion doesn't hold it."""
+        discussion = self.get_mr_discussion(project, mr_iid, discussion_id)
+        for n in discussion["notes"]:
+            if n["id"] == int(note_id):
+                return n
+        raise GitLabNotFoundError(
+            f"Note {note_id} is not in discussion {discussion_id} of MR !{mr_iid} -- "
+            "check both ids with get_mr_discussions.",
+            404,
+        )
+
     # ------------------------------------------------------------------
     # Merge requests (write -- callers gate these)
     # ------------------------------------------------------------------
@@ -333,6 +351,13 @@ class GitLabClient:
             return {"draft": True, "note": data}
         data = self._request("POST", f"{base}/discussions", json_body={"body": body, "position": position})
         return {"draft": False, "discussion": models.discussion(data)}
+
+    def edit_mr_note(self, project: str, mr_iid: int, discussion_id: str, note_id: int, body: str) -> Dict[str, Any]:
+        path = f"{self._discussion_path(project, mr_iid, discussion_id)}/notes/{int(note_id)}"
+        return models.note(self._request("PUT", path, json_body={"body": body}))
+
+    def delete_mr_note(self, project: str, mr_iid: int, discussion_id: str, note_id: int) -> None:
+        self._request("DELETE", f"{self._discussion_path(project, mr_iid, discussion_id)}/notes/{int(note_id)}")
 
 
 _client_singleton: Optional[GitLabClient] = None

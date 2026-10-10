@@ -468,7 +468,7 @@ instead (linked below), not repeated here.
 |---|---|---|
 | [`jira`](skills/jira) | Toolset (Read + Write) | Do-everything Jira assistant -- see [`skills/jira/README.md`](skills/jira/README.md) for its full thin-skill catalog |
 | [`confluence`](skills/confluence) | Toolset (Read + Write) | Do-everything Confluence assistant (Cloud + Server/Data Center) -- see [`skills/confluence/README.md`](skills/confluence/README.md) for its thin-skill catalog |
-| [`glab`](skills/glab) | Toolset (Read + Write) | Do-everything GitLab assistant (self-hosted or gitlab.com, personal access token) -- repository files, merge requests, diffs, discussions, and gated general/inline MR comments; also what [`code-review`](skills/code-review) uses to review a remote MR -- see [`skills/glab/README.md`](skills/glab/README.md) for its thin-skill catalog |
+| [`glab`](skills/glab) | Toolset (Read + Write) | Do-everything GitLab assistant (self-hosted or gitlab.com, personal access token) -- repository files, merge requests, diffs, discussions, and gated general/inline MR comments (post, edit, delete); also what [`code-review`](skills/code-review) uses to review a remote MR -- see [`skills/glab/README.md`](skills/glab/README.md) for its thin-skill catalog |
 | [`mood`](skills/mood) | Standalone | Switches the agent's tone/style (`neutral`/`alpha`/`angry`/`sarcastic`/`flatterer`/`too-kind`) for the rest of the conversation |
 | [`prd`](skills/prd) | Standalone | Drafts a PRD from a feature brief and maintains `CURRENT_STATE.md`, a PRD-implementation-status navigation map |
 | [`trd`](skills/trd) | Standalone | Turns a PRD or feature brief into a Technical Requirements/Design Document under `docs/TRDs/` |

@@ -59,6 +59,16 @@ def require_iid(value: Any) -> int:
     return iid
 
 
+def require_note_id(value: Any) -> int:
+    try:
+        note_id = int(value)
+    except (TypeError, ValueError):
+        raise ToolInputError("'note_id' must be an integer (a note's `id` from get_mr_discussions).") from None
+    if note_id <= 0:
+        raise ToolInputError("'note_id' must be a positive integer.")
+    return note_id
+
+
 def resolve_project(project: Optional[str]) -> str:
     """Return the explicit project, else ``GITLAB_DEFAULT_PROJECT``, else fail."""
     if project and project.strip():

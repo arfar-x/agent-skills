@@ -26,6 +26,10 @@ Usage:
     python scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 --body "..." [--draft] [--confirm]
     python scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \\
         --file_path src/a.py --new_line 10 --body "..." [--draft] [--confirm]
+    python scripts/glab_tool.py edit_mr_note --project group/repo --mr_iid 42 \\
+        --discussion_id abc123 --note_id 7 --body "..." [--confirm]
+    python scripts/glab_tool.py delete_mr_note --project group/repo --mr_iid 42 \\
+        --discussion_id abc123 --note_id 7 [--confirm]
 
 Every subcommand prints JSON only and exits 0 on a handled error --
 failures are `{"error": {...}}` in the body. A non-zero exit means the
@@ -47,6 +51,8 @@ from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     add_mr_discussion,
     add_mr_note,
+    delete_mr_note,
+    edit_mr_note,
     get_file,
     get_mr,
     get_mr_diff,
@@ -70,6 +76,12 @@ def _add_project(parser: argparse.ArgumentParser) -> None:
 def _add_mr(parser: argparse.ArgumentParser) -> None:
     _add_project(parser)
     parser.add_argument("--mr_iid", required=True, type=int, help="Merge request number (the N in .../merge_requests/N)")
+
+
+def _add_note(parser: argparse.ArgumentParser) -> None:
+    _add_mr(parser)
+    parser.add_argument("--discussion_id", required=True, help="The note's discussion `id` (from get_mr_discussions)")
+    parser.add_argument("--note_id", required=True, type=int, help="The note's `id` within that discussion (from get_mr_discussions)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -137,6 +149,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--draft", action="store_true", help="Save as a draft note, unpublished until the user submits their review")
     p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
 
+    p = sub.add_parser("edit_mr_note", help="Replace the body of an existing merge request comment (write, gated)")
+    _add_note(p)
+    p.add_argument("--body", required=True, help="New comment text, GitLab Markdown")
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
+    p = sub.add_parser("delete_mr_note", help="Permanently delete a merge request comment (destructive write, gated)")
+    _add_note(p)
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
     return parser
 
 
@@ -168,6 +189,10 @@ def dispatch(args: argparse.Namespace):
         return add_mr_discussion.add_mr_discussion(
             args.mr_iid, args.file_path, args.body, args.project, args.new_line, args.old_line, args.draft, args.confirm
         )
+    if t == "edit_mr_note":
+        return edit_mr_note.edit_mr_note(args.mr_iid, args.discussion_id, args.note_id, args.body, args.project, args.confirm)
+    if t == "delete_mr_note":
+        return delete_mr_note.delete_mr_note(args.mr_iid, args.discussion_id, args.note_id, args.project, args.confirm)
     raise AssertionError(f"Unhandled tool: {t}")  # unreachable: argparse enforces choices
 
 

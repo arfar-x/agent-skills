@@ -31,9 +31,14 @@ a remote merge request and (only when asked) post its findings back.
   default on newer versions and cannot work with 2FA, so it is
   deliberately not supported. Scope `read_api` is enough to read; posting
   comments needs `api`.
-- **Write operations are gated.** `add_mr_note` and `add_mr_discussion`
-  refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
-  or `GITLAB_AUTO_CONFIRM_WRITES=true` is set.
+- **Write operations are gated.** `add_mr_note`, `add_mr_discussion`,
+  `edit_mr_note`, and `delete_mr_note` refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
+  or `GITLAB_AUTO_CONFIRM_WRITES=true` is set. `edit_mr_note` and
+  `delete_mr_note` read the target note (`GET .../discussions/:id`)
+  before the gate, so a wrong discussion/note id pair fails before
+  approval and the `pending_action` shows the body being replaced or
+  deleted. They call GitLab's discussion-note endpoints (`PUT`/`DELETE
+  .../discussions/:discussion_id/notes/:note_id`).
 - **Inline positions are resolved, not passed.** GitLab rejects an inline
   comment unless `position` (base/start/head SHAs, old/new line pair)
   matches the diff exactly. `add_mr_discussion` takes a plain file +
@@ -86,7 +91,7 @@ Thin per-action wrapper skills (each shells out to
 | [`glab-mrs`](../glab-mrs) | `list_mrs` |
 | [`glab-mr`](../glab-mr) | `get_mr`, `get_mr_discussions` |
 | [`glab-mr-diff`](../glab-mr-diff) | `get_mr_diff` |
-| [`glab-mr-comment`](../glab-mr-comment) | `add_mr_note`, `add_mr_discussion` (orchestrator, write, gated) |
+| [`glab-mr-comment`](../glab-mr-comment) | `add_mr_note`, `add_mr_discussion`, `edit_mr_note`, `delete_mr_note` (orchestrator, write, gated) |
 
 ## Configuration
 

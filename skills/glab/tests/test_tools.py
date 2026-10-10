@@ -2,7 +2,7 @@ import pytest
 
 import lib.glab_client as gc
 from tests.conftest import DIFF_REFS, SAMPLE_DIFF, make_response
-from tools import add_mr_discussion, add_mr_note, get_file, get_mr, get_project, list_mrs
+from tools import add_mr_discussion, add_mr_note, delete_mr_note, edit_mr_note, get_file, get_mr, get_project, list_mrs
 
 
 @pytest.fixture(autouse=True)
@@ -85,3 +85,51 @@ def test_api_error_becomes_json(mock_session):
 def test_list_mrs_count(mock_session):
     mock_session.request.return_value = make_response(json_data=[{"iid": 1, "title": "t"}])
     assert list_mrs.list_mrs(project="g/p")["count"] == 1
+
+
+_DISCUSSION = {"id": "abc", "notes": [{"id": 7, "body": "old", "author": {"username": "alice"}}]}
+
+
+def test_edit_mr_note_gate_shows_current_and_new_body(mock_session):
+    mock_session.request.return_value = make_response(json_data=_DISCUSSION)
+    out = edit_mr_note.edit_mr_note(5, "abc", 7, "new", project="g/p")
+    assert out["requires_confirmation"] is True
+    pending = out["pending_action"]
+    assert (pending["current_body"], pending["new_body"], pending["author"]) == ("old", "new", "alice")
+    assert mock_session.request.call_count == 1  # only the read, nothing written
+
+
+def test_edit_mr_note_confirm_puts(mock_session):
+    mock_session.request.side_effect = [
+        make_response(json_data=_DISCUSSION),
+        make_response(json_data={"id": 7, "body": "new"}),
+    ]
+    out = edit_mr_note.edit_mr_note(5, "abc", 7, "new", project="g/p", confirm=True)
+    assert out["confirmed"] is True and out["note"]["body"] == "new"
+    assert mock_session.request.call_args.args[0] == "PUT"
+
+
+def test_edit_mr_note_unknown_note_fails_before_gate(mock_session):
+    mock_session.request.return_value = make_response(json_data=_DISCUSSION)
+    out = edit_mr_note.edit_mr_note(5, "abc", 8, "new", project="g/p", confirm=True)
+    assert out["error"]["type"] == "GitLabNotFoundError"
+    assert mock_session.request.call_count == 1
+
+
+def test_delete_mr_note_gate_shows_what_will_be_deleted(mock_session):
+    mock_session.request.return_value = make_response(json_data=_DISCUSSION)
+    out = delete_mr_note.delete_mr_note(5, "abc", 7, project="g/p")
+    assert out["requires_confirmation"] is True and out["pending_action"]["body"] == "old"
+    assert mock_session.request.call_count == 1
+
+
+def test_delete_mr_note_confirm_deletes(mock_session):
+    mock_session.request.side_effect = [make_response(json_data=_DISCUSSION), make_response(status_code=204)]
+    out = delete_mr_note.delete_mr_note(5, "abc", 7, project="g/p", confirm=True)
+    assert out == {"confirmed": True, "deleted": True, "discussion_id": "abc", "note_id": 7, "deleted_body": "old"}
+    assert mock_session.request.call_args.args[0] == "DELETE"
+
+
+def test_note_tools_validate_ids():
+    assert edit_mr_note.edit_mr_note(5, " ", 7, "x", project="g/p")["error"]["type"] == "invalid_input"
+    assert delete_mr_note.delete_mr_note(5, "abc", 0, project="g/p")["error"]["type"] == "invalid_input"

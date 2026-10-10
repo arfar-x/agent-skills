@@ -103,3 +103,24 @@ def test_note_vs_draft_endpoints(client, mock_session):
     assert mock_session.request.call_args.args[1].endswith("/merge_requests/5/notes")
     client.add_mr_note("1", 5, "hi", draft=True)
     assert mock_session.request.call_args.args[1].endswith("/merge_requests/5/draft_notes")
+
+
+def test_edit_and_delete_note_endpoints(client, mock_session):
+    mock_session.request.return_value = make_response(json_data={"id": 7, "body": "new"})
+    note = client.edit_mr_note("1", 5, "abc", 7, "new")
+    method, url = mock_session.request.call_args.args
+    assert method == "PUT" and url.endswith("/merge_requests/5/discussions/abc/notes/7")
+    assert mock_session.request.call_args.kwargs["json"] == {"body": "new"}
+    assert note["body"] == "new"
+
+    mock_session.request.return_value = make_response(status_code=204)
+    assert client.delete_mr_note("1", 5, "abc", 7) is None
+    method, url = mock_session.request.call_args.args
+    assert method == "DELETE" and url.endswith("/merge_requests/5/discussions/abc/notes/7")
+
+
+def test_get_mr_discussion_note_rejects_a_note_from_another_discussion(client, mock_session):
+    mock_session.request.return_value = make_response(json_data={"id": "abc", "notes": [{"id": 1, "body": "x"}]})
+    assert client.get_mr_discussion_note("1", 5, "abc", 1)["body"] == "x"
+    with pytest.raises(GitLabNotFoundError, match="not in discussion"):
+        client.get_mr_discussion_note("1", 5, "abc", 2)

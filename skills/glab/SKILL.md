@@ -3,11 +3,12 @@ name: glab
 description: >-
   GitLab (self-hosted or gitlab.com) assistant. Answers questions like "what's
   in MR 42", "show me src/app.py on main", "what MRs are waiting on my
-  review", and posts general or inline comments on merge requests -- by calling
+  review", and posts, edits, or deletes general or inline comments on merge
+  requests -- by calling
   structured GitLab tools and reasoning over their JSON output, never by
   guessing or inventing repository, file, or MR content. Use whenever the
   user asks about a GitLab project, file, or merge request.
-version: 1.1.0
+version: 1.2.0
 metadata:
   category: software-development
   hermes:
@@ -75,20 +76,29 @@ behalf; there is no username/password mode.
    answer from memory or assumption.
 2. **Never invent content.** Every title, diff line, file excerpt, or
    comment you state must come from JSON a tool returned.
-3. **Write operations require confirmation.** `add_mr_note` and
-   `add_mr_discussion` refuse to execute unless run with `--confirm`
-   (enforced in code). Unless `GITLAB_AUTO_CONFIRM_WRITES=true`:
+3. **Write operations require confirmation.** `add_mr_note`,
+   `add_mr_discussion`, `edit_mr_note`, and `delete_mr_note` refuse to
+   execute unless run with `--confirm` (enforced in code). Unless
+   `GITLAB_AUTO_CONFIRM_WRITES=true`:
    - Run without `--confirm` first, show the user exactly what will be
      posted (MR, file/line for an inline comment, full text, draft or
-     published), and wait for an explicit yes.
+     published), and wait for an explicit yes. For an edit, show the
+     note's current body and the new one (`pending_action`'s
+     `current_body`/`new_body`); for a delete, the body that will be
+     deleted and its author.
    - Only then re-run the same command with `--confirm`.
    - If a result has `"requires_confirmation": true`, treat it as the
      tool declining to act -- relay `pending_action` and ask.
    - A batch (e.g. several review findings) may be approved in one yes
      only if you listed every comment's full text and location first.
-   - Posted comments cannot be unposted by this skill. Don't post twice
-     to "retry" -- check `get_mr_discussions` first if unsure whether a
-     post landed.
+   - Don't post twice to "retry" -- check `get_mr_discussions` first if
+     unsure whether a post landed. To fix a posted comment, edit it
+     (`edit_mr_note`) rather than posting a correction; a deleted note
+     cannot be restored.
+   - Take `--discussion_id` and `--note_id` from `get_mr_discussions`
+     (a discussion's `id` and one of its `notes[].id`) -- never guess
+     them. Both edit and delete fetch the note first, so a wrong pair
+     fails before anything changes.
    - **If the write the user asked for fails, never silently
      substitute another write.** E.g. if an inline comment fails because
      the line isn't in the diff, report it and ask before falling back
@@ -140,7 +150,17 @@ uv run scripts/glab_tool.py get_mr_discussions --project group/repo --mr_iid 42
 uv run scripts/glab_tool.py add_mr_note --project group/repo --mr_iid 42 --body "..." [--draft]
 uv run scripts/glab_tool.py add_mr_discussion --project group/repo --mr_iid 42 \
   --file_path src/app.py --new_line 10 --body "..." [--draft]
+
+# Edit or delete an existing comment (write, gated; ids from get_mr_discussions)
+uv run scripts/glab_tool.py edit_mr_note --project group/repo --mr_iid 42 \
+  --discussion_id <discussion id> --note_id <note id> --body "..."
+uv run scripts/glab_tool.py delete_mr_note --project group/repo --mr_iid 42 \
+  --discussion_id <discussion id> --note_id <note id>
 ```
+
+Edit and delete work on published notes only -- general and inline
+alike, since a general note is a single-note discussion. Unpublished
+`--draft` notes don't appear in `get_mr_discussions` and aren't covered.
 
 `--project` may be omitted when `GITLAB_DEFAULT_PROJECT` is set.
 
