@@ -31,8 +31,8 @@ remember across turns and sessions.
   why `CONFLUENCE_DEPLOYMENT_TYPE` is a **required** setting here, where
   Jira's equivalent is optional.
 - **Write operations are gated.** `create_page()`, `update_page()`,
-  `delete_page()`, `add_comment()`, `add_label()`, and `remove_label()`
-  refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
+  `delete_page()`, `add_comment()`, `add_label()`, `remove_label()`,
+  `upload_attachment()`, and `delete_attachment()` refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
   or `CONFLUENCE_AUTO_CONFIRM_WRITES=true` is set. This backs up
   `SKILL.md`'s confirmation rule with an enforced safety net in code.
 - **Page updates auto-resolve the version.** Confluence requires every
@@ -87,6 +87,9 @@ skills/confluence/
 │   ├── get_space.py
 │   ├── get_comments.py
 │   ├── get_attachments.py
+│   ├── get_attachment.py
+│   ├── upload_attachment.py
+│   ├── delete_attachment.py
 │   ├── get_children.py
 │   ├── get_labels.py
 │   ├── page_summary.py
@@ -159,7 +162,10 @@ Windows caveat on symlinked checkouts.
 | `list_spaces(max_results)` | Read | Enumerate every space visible to the authenticated user |
 | `get_space(space_key)` | Read | One space's identity and description |
 | `get_comments(page_id, max_results)` | Read | Every comment on a page |
-| `get_attachments(page_id, max_results)` | Read | A page's attachments (metadata only -- no upload/download support) |
+| `get_attachments(page_id, max_results)` | Read | A page's attachments (metadata only; use `get_attachment` for the content) |
+| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Confluence host |
+| `upload_attachment(page_id, file_path, filename, comment, max_bytes, confirm)` | Write (gated) | Attach a local file, or add a new version if the page already has an attachment of that name; `pending_action` shows the resolved path, name, size, and whether it replaces one |
+| `delete_attachment(attachment_id, confirm)` | Write (gated) | Permanently delete one attachment with all its versions. Content ids are shared with pages, so the id is verified to be an attachment (in the tool and again in the client) -- a page id is rejected, never deleted; `pending_action` shows the file and its page |
 | `get_children(page_id, max_results)` | Read | A page's direct child pages |
 | `get_labels(page_id)` | Read | The labels currently on a page |
 | `page_summary(page_id, sections)` | Read | Page + comments + attachments + labels + children, as one document (or a subset via `sections`) |
@@ -205,8 +211,10 @@ for every row below: `confluence`.**
 | `confluence-add-comment` | `add_comment` | Write (gated) |
 
 The remaining tools (`get_page_by_title`, `get_space`, `get_comments`,
-`get_attachments`, `get_children`, `get_labels`, `page_summary`,
-`my_pages`, `add_label`, `remove_label`) have no dedicated wrapper --
+`get_attachments`, `get_attachment`, `upload_attachment`,
+`delete_attachment`, `get_children`,
+`get_labels`, `page_summary`, `my_pages`, `add_label`, `remove_label`)
+have no dedicated wrapper --
 reach them through the parent `confluence` skill's own CLI, exactly as
 documented in `SKILL.md`'s "Commands" section. Skipping a wrapper never
 weakens the write-gating on a tool that has one; that gate lives in the

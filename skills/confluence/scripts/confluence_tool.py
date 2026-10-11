@@ -23,6 +23,11 @@ Usage:
     python scripts/confluence_tool.py get_space --space_key ENG
     python scripts/confluence_tool.py get_comments --page_id 12345678
     python scripts/confluence_tool.py get_attachments --page_id 12345678
+    python scripts/confluence_tool.py get_attachment --attachment_id 98765432 [--out_dir /path/to/dir] \\
+        [--overwrite] [--max_bytes 52428800]
+    python scripts/confluence_tool.py delete_attachment --attachment_id 98765432 [--confirm]
+    python scripts/confluence_tool.py upload_attachment --page_id 12345678 --file_path /path/to/file \\
+        [--filename name.ext] [--comment "..."] [--max_bytes 52428800] [--confirm]
     python scripts/confluence_tool.py get_children --page_id 12345678
     python scripts/confluence_tool.py get_labels --page_id 12345678
     python scripts/confluence_tool.py page_summary --page_id 12345678 [--sections page,comments]
@@ -53,12 +58,15 @@ _SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SKILL_ROOT not in sys.path:
     sys.path.insert(0, _SKILL_ROOT)
 
+from lib.attachment_files import DEFAULT_MAX_BYTES  # noqa: E402
 from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     add_comment,
     add_label,
     create_page,
+    delete_attachment,
     delete_page,
+    get_attachment,
     get_attachments,
     get_children,
     get_comments,
@@ -72,6 +80,7 @@ from tools import (  # noqa: E402
     remove_label,
     search,
     update_page,
+    upload_attachment,
 )
 
 
@@ -118,6 +127,27 @@ def build_parser() -> argparse.ArgumentParser:
     p = subparsers.add_parser("get_attachments", help="List a page's attachments (metadata only)")
     _add_page_id(p)
     p.add_argument("--max_results", type=int, default=None)
+
+    p = subparsers.add_parser("get_attachment", help="Download one page attachment to local disk")
+    p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
+    p.add_argument("--out_dir", default=None, help="Directory to save into (default: a scratch directory under the system temp dir)")
+    p.add_argument("--overwrite", action="store_true", help="Replace an existing file of the same name")
+    p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse attachments larger than this (default 50 MB)")
+
+    p = subparsers.add_parser(
+        "upload_attachment",
+        help="Attach a local file to a page, or add a new version if the name exists (write, gated)",
+    )
+    _add_page_id(p)
+    p.add_argument("--file_path", required=True, help="Path of the local file to upload")
+    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name)")
+    p.add_argument("--comment", default=None, help="Version comment shown in the attachment history")
+    p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse files larger than this (default 50 MB)")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser("delete_attachment", help="Permanently delete one page attachment, all versions (destructive write, gated)")
+    p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser("get_children", help="List a page's direct child pages")
     _add_page_id(p)
@@ -198,6 +228,14 @@ def dispatch(args: argparse.Namespace):
         return get_comments.get_comments(args.page_id, max_results=args.max_results)
     if args.tool == "get_attachments":
         return get_attachments.get_attachments(args.page_id, max_results=args.max_results)
+    if args.tool == "get_attachment":
+        return get_attachment.get_attachment(args.attachment_id, args.out_dir, args.overwrite, args.max_bytes)
+    if args.tool == "upload_attachment":
+        return upload_attachment.upload_attachment(
+            args.page_id, args.file_path, args.filename, args.comment, args.max_bytes, confirm=args.confirm
+        )
+    if args.tool == "delete_attachment":
+        return delete_attachment.delete_attachment(args.attachment_id, confirm=args.confirm)
     if args.tool == "get_children":
         return get_children.get_children(args.page_id, max_results=args.max_results)
     if args.tool == "get_labels":

@@ -35,6 +35,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from . import attachment_files
 from .auth import ConfluenceConfig, load_config, load_credential
 from .credentials import Credential
 from .models import Ancestor, Attachment, Comment, Page, Space
@@ -176,6 +177,8 @@ class ConfluenceClient:
         *,
         params: Optional[Dict[str, Any]] = None,
         json_body: Optional[Any] = None,
+        files: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, Any]] = None,
         cache: bool = False,
     ) -> Any:
         url = f"{self.config.base_url}{path}"
@@ -194,6 +197,8 @@ class ConfluenceClient:
                 url,
                 params=params,
                 json=json_body,
+                **({"files": files} if files else {}),
+                **({"headers": headers} if headers else {}),
                 timeout=self.config.timeout_seconds,
             )
         except requests.exceptions.Timeout as exc:
@@ -504,7 +509,7 @@ class ConfluenceClient:
         return [self._build_comment(raw) for raw in raw_comments]
 
     def get_attachments(self, page_id: str, *, max_results: Optional[int] = None) -> List[Attachment]:
-        """List a page's attachments (metadata only -- no upload/download support)."""
+        """List a page's attachments (metadata only; see get_attachment/upload_attachment for content)."""
         self._require_page_id(page_id)
         raw_attachments = self._paginate(
             f"{self._api_path}/content/{page_id}/child/attachment",
@@ -513,6 +518,136 @@ class ConfluenceClient:
             page_size=25,
         )
         return [self._build_attachment(raw) for raw in raw_attachments]
+
+    def get_attachment(
+        self,
+        attachment_id: str,
+        out_dir: Optional[str] = None,
+        overwrite: bool = False,
+        max_bytes: int = attachment_files.DEFAULT_MAX_BYTES,
+    ) -> Dict[str, Any]:
+        """Save one attachment to local disk and describe where it went."""
+        self._require_page_id(attachment_id)
+        raw = self._request(
+            "GET", f"{self._api_path}/content/{attachment_id}", params={"expand": "metadata,extensions"}
+        )
+        if raw.get("type") != "attachment":
+            raise ConfluenceValidationError(
+                f"Content {attachment_id} is a {raw.get('type')!r}, not an attachment "
+                "(use the id from get_attachments).",
+                status_code=400,
+            )
+        attachment = self._build_attachment(raw)
+        attachment_files.check_size_within_limit(attachment.file_size, max_bytes)
+        target = attachment_files.prepare_download_target(attachment.title, out_dir, "confluence", overwrite)
+
+        # The URL comes from an API response: never send credentials anywhere but this Confluence.
+        if not attachment.url or not attachment.url.startswith(self.config.base_url + "/"):
+            raise ConfluenceApiError(
+                f"Attachment {attachment_id} points outside {self.config.base_url}; refusing to download it."
+            )
+        response = self._stream("GET", attachment.url)
+        try:
+            written = attachment_files.stream_to_file(response.iter_content(65536), target, max_bytes)
+        finally:
+            response.close()
+        return {**attachment.to_dict(), "saved_to": str(target), "size_bytes": written}
+
+    def get_attachment_info(self, attachment_id: str) -> Dict[str, Any]:
+        """Return an attachment's metadata and the page it belongs to.
+
+        Raises if the id is not an attachment: content ids are shared with
+        pages, and callers use this to make sure they never act on a page.
+        """
+        self._require_page_id(attachment_id)
+        raw = self._request(
+            "GET",
+            f"{self._api_path}/content/{attachment_id}",
+            params={"expand": "metadata,extensions,container"},
+        )
+        if raw.get("type") != "attachment":
+            raise ConfluenceValidationError(
+                f"Content {attachment_id} is a {raw.get('type')!r}, not an attachment "
+                "(use the id from get_attachments).",
+                status_code=400,
+            )
+        container = raw.get("container") or {}
+        return {
+            **self._build_attachment(raw).to_dict(),
+            "page_id": container.get("id"),
+            "page_title": container.get("title"),
+        }
+
+    def delete_attachment(self, attachment_id: str) -> None:
+        """Permanently delete an attachment (and all its versions). Callers gate this.
+
+        Re-checks the content type first, so a page id can never be deleted here.
+        """
+        self.get_attachment_info(attachment_id)
+        self._request("DELETE", f"{self._api_path}/content/{attachment_id}")
+
+    def find_attachment_by_name(self, page_id: str, filename: str) -> Optional[Attachment]:
+        """Return the page's attachment with exactly this file name, if any."""
+        self._require_page_id(page_id)
+        raw = self._request(
+            "GET",
+            f"{self._api_path}/content/{page_id}/child/attachment",
+            params={"filename": filename, "expand": "metadata,extensions"},
+        )
+        for item in raw.get("results") or []:
+            if item.get("title") == filename:
+                return self._build_attachment(item)
+        return None
+
+    def upload_attachment(
+        self, page_id: str, file_path: str, filename: Optional[str] = None, comment: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Attach a local file to a page, or add a new version if that name already exists.
+
+        Confluence refuses a second attachment with an existing name, so an
+        existing one is updated in place (new version) instead.
+        """
+        self._require_page_id(page_id)
+        info = attachment_files.describe_upload_file(file_path, filename)
+        existing = self.find_attachment_by_name(page_id, info["filename"])
+        path = f"{self._api_path}/content/{page_id}/child/attachment"
+        if existing:
+            path += f"/{existing.id}/data"
+        with open(info["path"], "rb") as handle:
+            parts: Dict[str, Any] = {
+                "file": (info["filename"], handle, info["media_type"]),
+                "minorEdit": (None, "true"),
+            }
+            if comment:
+                parts["comment"] = (None, comment)
+            raw = self._request(
+                "POST",
+                path,
+                params={"expand": "metadata,extensions"},
+                files=parts,
+                # Confluence requires this header on multipart uploads (XSRF check); the session's
+                # default JSON Content-Type must be dropped so requests can set the multipart boundary.
+                headers={"X-Atlassian-Token": "no-check", "Content-Type": None},
+            )
+        item = (raw.get("results") or [raw])[0] if isinstance(raw, dict) else raw[0]
+        return {"attachment": self._build_attachment(item).to_dict(), "replaced_existing": existing is not None}
+
+    def _stream(self, method: str, url: str) -> requests.Response:
+        """Open a streamed (non-JSON) response, raising the usual typed errors."""
+        try:
+            response = self.session.request(
+                method,
+                url,
+                stream=True,
+                headers={"Accept": "*/*"},
+                timeout=self.config.timeout_seconds,
+            )
+        except requests.exceptions.Timeout as exc:
+            raise ConfluenceApiError(f"Timed out contacting Confluence at {url} after {self.config.timeout_seconds}s") from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise ConfluenceApiError(f"Could not connect to Confluence at {self.config.base_url}: {exc}") from exc
+        self._raise_for_status(response)
+        return response
 
     def get_children(self, page_id: str, *, max_results: Optional[int] = None) -> List[Page]:
         """List a page's direct child pages."""
