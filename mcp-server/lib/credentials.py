@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -109,15 +110,58 @@ _trust_request_credentials = False
 #: then passed through as-is. Set once at startup, like the trust flag.
 _unset_header_value = ""
 
+#: The infra var naming the attachment directory (see
+#: skills/_shared/attachments/files.py), and, in per-user mode, the
+#: trusted header naming whose subdirectory of it a request may use.
+ATTACHMENT_DIR_VAR = "AGENT_SKILLS_ATTACHMENT_DIR"
+_USER_HEADER = "x-agent-skills-user"
+_USER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]{0,127}$")
 
-def configure(*, trust_request_credentials: bool, unset_header_value: str = "") -> None:
+#: Set once at startup, like the trust flag: when True, a request gets
+#: only <AGENT_SKILLS_ATTACHMENT_DIR>/<user> -- the user named by a
+#: trusted X-Agent-Skills-User header -- and no directory at all without
+#: one.
+_attachment_dir_per_user = False
+
+
+def configure(
+    *, trust_request_credentials: bool, unset_header_value: str = "", attachment_dir_per_user: bool = False
+) -> None:
     """Called once by server.py at startup. Not meant to be called
     per-request or mid-run -- this is process-lifetime configuration,
     the same as which transport or which toolsets are active.
     """
-    global _trust_request_credentials, _unset_header_value
+    global _trust_request_credentials, _unset_header_value, _attachment_dir_per_user
     _trust_request_credentials = trust_request_credentials
     _unset_header_value = unset_header_value.strip()
+    _attachment_dir_per_user = attachment_dir_per_user
+
+
+def resolve_attachment_dir_per_user(cli_flag: bool) -> bool:
+    """--attachment-dir-per-user wins; otherwise MCP_ATTACHMENT_DIR_PER_USER=1."""
+    return cli_flag or os.environ.get("MCP_ATTACHMENT_DIR_PER_USER", "").strip() == "1"
+
+
+def attachment_dir() -> str | None:
+    """The attachment directory this request may use, or None.
+
+    Without per-user mode it is AGENT_SKILLS_ATTACHMENT_DIR as configured.
+    In per-user mode it is that directory's subdirectory for the user a
+    trusted X-Agent-Skills-User header names -- and None when headers are
+    not trusted or the header is missing or not a plain identifier, so a
+    request can never reach the shared root or another user's files.
+    """
+    root = os.environ.get(ATTACHMENT_DIR_VAR, "").strip()
+    if not root:
+        return None
+    if not _attachment_dir_per_user:
+        return root
+    if not _trust_request_credentials:
+        return None
+    user = (_get_http_headers().get(_USER_HEADER) or "").strip()
+    if not _USER_ID.match(user):
+        return None
+    return os.path.join(root, user)
 
 
 def is_trusted() -> bool:
@@ -194,6 +238,10 @@ def resolve_env(manifest: "SkillManifest", *, trust_request_credentials: bool) -
     declared = _declared_var_names(manifest)
 
     env: dict[str, str] = {name: os.environ[name] for name in _INFRA_ENV_VARS if name in os.environ}
+    env.pop(ATTACHMENT_DIR_VAR, None)
+    scoped_dir = attachment_dir()
+    if scoped_dir:
+        env[ATTACHMENT_DIR_VAR] = scoped_dir
     env.update({name: os.environ[name] for name in declared if name in os.environ})
 
     overrides = _header_overrides(declared)

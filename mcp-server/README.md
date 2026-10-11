@@ -254,6 +254,17 @@ content in the call (`content` / `content_base64`), which is what an MCP
 client generating a file needs anyway, and downloads go to a scratch
 directory. Never point it at a directory holding credentials or config.
 
+When the directory is set, the server also offers `list_attachment_files`,
+which lists what the caller may pass as `file_path` (hidden and
+secret-looking files left out). For a multi-user client whose upload store
+keeps one folder per user (LibreChat's does), add
+`--attachment-dir-per-user` (or `MCP_ATTACHMENT_DIR_PER_USER=1`): each
+request then gets only `<AGENT_SKILLS_ATTACHMENT_DIR>/<user>`, the user
+named by an `X-Agent-Skills-User` header -- honored only with
+`--trust-request-credentials`, like the credential headers, and only as a
+plain id (no `/`, no leading `.`). A request without one gets no local
+files at all, never the shared root. Mount the store read-only.
+
 The image binds `0.0.0.0:8321` with no authentication unless you configure
 one -- see "Multi-user credentials and inbound auth" below. Never publish
 this container's port to a public network regardless; put it on a

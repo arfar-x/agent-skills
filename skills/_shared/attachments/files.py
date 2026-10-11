@@ -123,7 +123,8 @@ def _inside(root: Path, path: Path) -> Path:
         ) from None
 
 
-def _refuse_secret_looking(relative: Path) -> None:
+def refuse_secret_looking(relative: Path) -> None:
+    """Raise if any part of ``relative`` is hidden, or its name looks like a secret."""
     for part in relative.parts:
         if part.startswith("."):
             raise AttachmentFileError(f"Refusing hidden file or directory {part!r}.")
@@ -157,7 +158,7 @@ def prepare_download_target(
                 "or leave out_dir unset to use the scratch directory."
             )
         directory = Path(os.path.normpath(root / Path(out_dir).expanduser()))
-        _refuse_secret_looking(_inside(root, directory) / "x")
+        refuse_secret_looking(_inside(root, directory) / "x")
     else:
         directory = default_download_dir(toolset)
     try:
@@ -277,12 +278,12 @@ def describe_upload_file(
             "uploaded from, or pass the file's content instead."
         )
     path = root / Path(file_path.strip()).expanduser()
-    _refuse_secret_looking(_inside(root, Path(os.path.normpath(path))))
+    refuse_secret_looking(_inside(root, Path(os.path.normpath(path))))
     try:
         resolved = path.resolve(strict=True)
     except (OSError, RuntimeError):
         raise AttachmentFileError(f"File not found: {file_path.strip()}") from None
-    _refuse_secret_looking(_inside(root, resolved))
+    refuse_secret_looking(_inside(root, resolved))
     if not resolved.is_file():
         raise AttachmentFileError(f"Not a regular file: {resolved}")
     if not os.access(resolved, os.R_OK):

@@ -261,7 +261,10 @@ flowchart TB
   `SSL_CERT_FILE`/`SSL_CERT_DIR`/`REQUESTS_CA_BUNDLE`/`CURL_CA_BUNDLE`),
   plus `AGENT_SKILLS_ATTACHMENT_DIR`, the one directory attachment tools
   may read or write local files in -- an infra var, not a declared one,
-  precisely so no request header can widen it.
+  precisely so no request header can widen it. In per-user mode
+  (`--attachment-dir-per-user`) a trusted `X-Agent-Skills-User` header
+  can only *narrow* it, to that user's own subdirectory; without a valid
+  one the var is left out entirely.
   None of these are ever toolset-specific credentials, and they're
   necessary for the subprocess to function at all -- **`PATH` in
   particular is load-bearing**: confirmed empirically that

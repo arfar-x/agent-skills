@@ -35,6 +35,7 @@ from lib.adapter_note import adapter_note  # noqa: E402
 from lib.auth import build_auth_provider  # noqa: E402
 from lib.doc_gen import build_doc_gen_tool  # noqa: E402
 from lib.introspect import IntrospectionError  # noqa: E402
+from lib.attachment_listing import build_list_attachment_files  # noqa: E402
 from lib.mcp_tools import register_toolset_tools  # noqa: E402
 from lib.registry import (  # noqa: E402
     discover_skills,
@@ -95,6 +96,9 @@ def build_app(*, include_internal: bool) -> FastMCP:
         frontmatter, body = parse_skill_md(manifest.skill_md_path)
         prefix = adapter_note(manifest) if manifest.kind == "toolset_root" else ""
         return {"name": name, "frontmatter": frontmatter, "instructions": prefix + body}
+
+    if os.environ.get(credentials.ATTACHMENT_DIR_VAR, "").strip():
+        app.tool()(build_list_attachment_files(REPO_ROOT))
 
     doc_gen_tool = build_doc_gen_tool(manifests)
     if doc_gen_tool is not None:
@@ -168,6 +172,18 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--attachment-dir-per-user",
+        action="store_true",
+        help=(
+            "Give each request only its own user's subdirectory of "
+            "AGENT_SKILLS_ATTACHMENT_DIR, named by a trusted X-Agent-Skills-User "
+            "header (e.g. a shared upload volume laid out one folder per "
+            "user); a request without a valid one gets no local files at all. "
+            "Needs --trust-request-credentials. Falls back to "
+            "MCP_ATTACHMENT_DIR_PER_USER=1."
+        ),
+    )
+    parser.add_argument(
         "--transport",
         choices=["stdio", "http", "sse", "streamable-http"],
         default="stdio",
@@ -224,9 +240,18 @@ def main() -> None:
             "already trust by other means (e.g. network isolation).",
             file=sys.stderr,
         )
+    attachment_dir_per_user = credentials.resolve_attachment_dir_per_user(args.attachment_dir_per_user)
+    if attachment_dir_per_user and not trust_request_credentials:
+        print(
+            "agent-skills mcp-server: --attachment-dir-per-user is set but request "
+            "headers are not trusted (--trust-request-credentials), so no request "
+            "can name its user -- local attachment files are disabled.",
+            file=sys.stderr,
+        )
     credentials.configure(
         trust_request_credentials=trust_request_credentials,
         unset_header_value=credentials.resolve_unset_header_value(args.unset_header_value),
+        attachment_dir_per_user=attachment_dir_per_user,
     )
 
     if args.transport == "stdio":
