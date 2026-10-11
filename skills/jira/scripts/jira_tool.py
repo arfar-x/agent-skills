@@ -64,7 +64,7 @@ _SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SKILL_ROOT not in sys.path:
     sys.path.insert(0, _SKILL_ROOT)
 
-from lib.attachment_files import DEFAULT_MAX_BYTES  # noqa: E402
+from lib.attachment_files import DEFAULT_MAX_BYTES, DEFAULT_READ_MAX_BYTES  # noqa: E402
 from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     blockers,
@@ -79,6 +79,7 @@ from tools import (  # noqa: E402
     my_work,
     now,
     project_context,
+    read_attachment,
     search,
     search_users,
     sprint,
@@ -216,6 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out_dir", default=None, help="Directory to save into, inside AGENT_SKILLS_ATTACHMENT_DIR (relative to it); refused when that is unset (default: a scratch directory under the system temp dir)")
     p.add_argument("--overwrite", action="store_true", help="Replace an existing file of the same name")
     p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse attachments larger than this (default 50 MB)")
+
+    p = subparsers.add_parser("read_attachment", help="Read one attachment's content inline, without saving it")
+    p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
+    p.add_argument("--max_bytes", type=int, default=DEFAULT_READ_MAX_BYTES, help="Refuse attachments larger than this (default 1 MB)")
+    p.add_argument("--as_base64", action="store_true", help="Return the bytes base64-encoded (for binary files)")
 
     p = subparsers.add_parser("upload_attachment", help="Attach content or a local file to an issue (write, gated)")
     _add_common(p, issue_key=True)
@@ -408,6 +414,8 @@ def dispatch(args: argparse.Namespace):
         return get_attachments.get_attachments(args.issue_key)
     if args.tool == "get_attachment":
         return get_attachment.get_attachment(args.attachment_id, args.out_dir, args.overwrite, args.max_bytes)
+    if args.tool == "read_attachment":
+        return read_attachment.read_attachment(args.attachment_id, args.max_bytes, args.as_base64)
     if args.tool == "upload_attachment":
         return upload_attachment.upload_attachment(
             args.issue_key, args.file_path, args.filename, args.max_bytes, confirm=args.confirm,

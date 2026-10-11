@@ -836,6 +836,31 @@ class JiraClient:
             response.close()
         return {**info, "saved_to": str(target), "size_bytes": written}
 
+    def read_attachment(
+        self,
+        attachment_id: str,
+        max_bytes: int = attachment_files.DEFAULT_READ_MAX_BYTES,
+        as_base64: bool = False,
+    ) -> Dict[str, Any]:
+        """Read one attachment's content into memory, without saving it anywhere."""
+        meta = self._request("GET", f"{self.API_V2}/attachment/{attachment_id}")
+        info = self._build_attachment(meta, attachment_id)
+        attachment_files.check_size_within_limit(info["size_bytes"], max_bytes)
+        content_url = meta.get("content") or ""
+        # The URL comes from an API response: never send credentials anywhere but this Jira.
+        if not content_url.startswith(self.config.base_url + "/"):
+            raise JiraApiError(f"Attachment {attachment_id} points outside {self.config.base_url}; refusing to read it.")
+        response = self._stream("GET", content_url)
+        try:
+            data = attachment_files.read_to_memory(response.iter_content(65536), max_bytes)
+        finally:
+            response.close()
+        return {
+            **info,
+            "size_bytes": len(data),
+            **attachment_files.present_content(data, info.get("media_type"), as_base64),
+        }
+
     def get_attachment_info(self, attachment_id: str) -> Dict[str, Any]:
         """Return one attachment's metadata (404 if it doesn't exist)."""
         return self._build_attachment(self._request("GET", f"{self.API_V2}/attachment/{attachment_id}"), attachment_id)

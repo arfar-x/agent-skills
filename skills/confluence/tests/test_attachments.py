@@ -162,3 +162,36 @@ def test_client_delete_rechecks_the_type_itself(client, mock_session):
     with pytest.raises(Exception, match="not an attachment"):
         client.delete_attachment("1")
     assert all(c.args[0] == "GET" for c in mock_session.request.call_args_list)
+
+
+# --- read_attachment ---------------------------------------------------------
+
+from tools import read_attachment  # noqa: E402
+
+CSV = {**RAW, "title": "data.csv", "metadata": {"mediaType": "text/csv"}, "extensions": {"fileSize": 11}}
+
+
+def test_read_attachment_returns_text_inline_and_writes_nothing(mock_session, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mock_session.request.side_effect = [make_response(json_data=CSV), stream_response([b"a,b\n", "۱,۲".encode()])]
+    out = read_attachment.read_attachment("555")
+    assert out["encoding"] == "text" and out["content"] == "a,b\n۱,۲" and out["title"] == "data.csv"
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_read_attachment_binary_needs_as_base64(mock_session):
+    mock_session.request.side_effect = [make_response(json_data=RAW), stream_response([b"\x89PNG\x00"])]
+    out = read_attachment.read_attachment("555")
+    assert out["encoding"] == "binary" and out["content"] is None and "as_base64" in out["note"]
+    mock_session.request.side_effect = [make_response(json_data=RAW), stream_response([b"\x89PNG\x00"])]
+    assert read_attachment.read_attachment("555", as_base64=True)["content"] == "iVBORwA="
+
+
+def test_read_attachment_enforces_the_limit_and_the_host(mock_session):
+    mock_session.request.return_value = make_response(json_data=CSV)
+    assert "limit" in read_attachment.read_attachment("555", max_bytes=3)["error"]["message"]
+    mock_session.request.side_effect = [make_response(json_data={**CSV, "extensions": {}}), stream_response([b"x" * 5])]
+    assert "limit" in read_attachment.read_attachment("555", max_bytes=3)["error"]["message"]
+    mock_session.request.side_effect = None
+    mock_session.request.return_value = make_response(json_data={**RAW, "_links": {"download": "@evil.example/x"}})
+    assert "outside" in read_attachment.read_attachment("555")["error"]["message"]

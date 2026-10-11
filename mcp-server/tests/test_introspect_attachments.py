@@ -23,7 +23,11 @@ def _specs(toolset):
 )
 def test_attachment_tools_are_discovered_with_the_right_params(toolset, id_flag):
     specs = _specs(toolset)
-    assert {"get_attachments", "get_attachment", "upload_attachment", "delete_attachment"} <= set(specs)
+    assert {"get_attachments", "get_attachment", "read_attachment", "upload_attachment", "delete_attachment"} <= set(specs)
+
+    read = {p.name: p for p in specs["read_attachment"].params}
+    assert read["attachment_id"].required is True
+    assert read["as_base64"].kind == "bool" and read["max_bytes"].kind == "int"
 
     get = {p.name: p for p in specs["get_attachment"].params}
     assert get["attachment_id"].required is True
@@ -44,7 +48,7 @@ def test_attachment_tools_are_discovered_with_the_right_params(toolset, id_flag)
 
 @pytest.mark.parametrize("toolset", ["jira", "confluence"])
 def test_attachment_tools_get_the_documented_mcp_names(toolset):
-    for name in ("get_attachment", "upload_attachment", "delete_attachment"):
+    for name in ("get_attachment", "read_attachment", "upload_attachment", "delete_attachment"):
         tool = build_tool(toolset, manifest=None, spec=_specs(toolset)[name])
         assert tool.name == f"{toolset}_{name}"
         assert tool.description

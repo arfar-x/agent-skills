@@ -179,3 +179,35 @@ def test_upload_of_a_file_outside_the_directory_fails_before_the_gate(mock_sessi
     out = upload_attachment.upload_attachment("PAY-1", "/proc/self/environ", confirm=True)
     assert out["error"]["type"] == "invalid_input" and "outside" in out["error"]["message"]
     mock_session.request.assert_not_called()
+
+
+# --- read_attachment ---------------------------------------------------------
+
+from tools import read_attachment  # noqa: E402
+
+LOG = {**META, "filename": "app.log", "mimeType": "text/plain", "size": 9}
+
+
+def test_read_attachment_returns_text_inline_and_writes_nothing(mock_session, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mock_session.request.side_effect = [make_response(json_data=LOG), stream_response([b"\xef\xbb\xbfline", b" one"])]
+    out = read_attachment.read_attachment("10001")
+    assert out["encoding"] == "text" and out["content"] == "line one" and out["filename"] == "app.log"
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_read_attachment_binary_needs_as_base64(mock_session):
+    mock_session.request.side_effect = [make_response(json_data=META), stream_response([b"\xff\xd8\xff"])]
+    out = read_attachment.read_attachment("10001")
+    assert out["encoding"] == "binary" and out["content"] is None
+    mock_session.request.side_effect = [make_response(json_data=META), stream_response([b"\xff\xd8\xff"])]
+    out = read_attachment.read_attachment("10001", as_base64=True)
+    assert out["encoding"] == "base64" and out["content"] == "/9j/"
+
+
+def test_read_attachment_enforces_the_limit_the_host_and_the_id(mock_session):
+    mock_session.request.return_value = make_response(json_data=LOG)
+    assert "limit" in read_attachment.read_attachment("10001", max_bytes=3)["error"]["message"]
+    mock_session.request.return_value = make_response(json_data={**LOG, "content": "https://evil.example/x"})
+    assert "outside" in read_attachment.read_attachment("10001")["error"]["message"]
+    assert read_attachment.read_attachment("../x")["error"]["type"] == "invalid_input"

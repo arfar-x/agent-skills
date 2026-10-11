@@ -39,6 +39,16 @@ from typing import Any, Dict, Iterable, Optional
 #: Upper bound for one transfer unless the caller raises or lowers it.
 DEFAULT_MAX_BYTES = 50 * 1024 * 1024
 
+#: Upper bound for an attachment read straight into a tool result: it ends
+#: up in a model's context, so it is far smaller than a download.
+DEFAULT_READ_MAX_BYTES = 1024 * 1024
+
+_TEXT_MEDIA_TYPE = re.compile(
+    r"^(text/|application/(json|xml|yaml|x-yaml|javascript|ecmascript|csv|sql|x-sh|x-httpd-php|graphql|toml|x-ndjson)\b|"
+    r"application/[\w.+-]+\+(json|xml|yaml)\b)",
+    re.IGNORECASE,
+)
+
 #: Environment variable naming the only directory local files may be
 #: uploaded from or downloaded into. Set by whoever runs the tools, never
 #: by a tool argument.
@@ -196,6 +206,47 @@ def stream_to_file(chunks: Iterable[bytes], target: Path, max_bytes: int = DEFAU
             pass
         raise
     return written
+
+
+def read_to_memory(chunks: Iterable[bytes], max_bytes: int = DEFAULT_READ_MAX_BYTES) -> bytes:
+    """Collect ``chunks`` in memory, refusing more than ``max_bytes``."""
+    data = bytearray()
+    for chunk in chunks:
+        if not chunk:
+            continue
+        data += chunk
+        if len(data) > max_bytes:
+            raise AttachmentFileError(
+                f"Attachment is larger than the {max_bytes}-byte limit for reading it inline "
+                "(raise max_bytes / --max_bytes, or download it with get_attachment)."
+            )
+    return bytes(data)
+
+
+def present_content(data: bytes, media_type: Optional[str], as_base64: bool = False) -> Dict[str, Any]:
+    """How a tool result carries an attachment's bytes.
+
+    Text (a text-like media type, or anything that is valid UTF-8 without
+    NUL bytes) comes back as ``{"encoding": "text", "content": str}``.
+    Binary comes back base64-encoded only when ``as_base64`` is asked for,
+    since it is rarely useful in a model's context; otherwise
+    ``{"encoding": "binary", "content": None}`` with a note. ``as_base64``
+    also forces base64 for text.
+    """
+    if as_base64:
+        return {"encoding": "base64", "content": base64.b64encode(data).decode("ascii")}
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        text = None
+    if text is not None and ("\x00" not in text or _TEXT_MEDIA_TYPE.match(media_type or "")):
+        return {"encoding": "text", "content": text.lstrip("\ufeff")}
+    return {
+        "encoding": "binary",
+        "content": None,
+        "note": "Binary content is not returned inline; pass as_base64 to get it base64-encoded, "
+        "or download it with get_attachment.",
+    }
 
 
 def check_size_within_limit(size: Optional[int], max_bytes: int) -> None:

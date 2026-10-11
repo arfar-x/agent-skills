@@ -558,6 +558,41 @@ class ConfluenceClient:
             response.close()
         return {**attachment.to_dict(), "saved_to": str(target), "size_bytes": written}
 
+    def read_attachment(
+        self,
+        attachment_id: str,
+        max_bytes: int = attachment_files.DEFAULT_READ_MAX_BYTES,
+        as_base64: bool = False,
+    ) -> Dict[str, Any]:
+        """Read one attachment's content into memory, without saving it anywhere."""
+        self._require_page_id(attachment_id)
+        raw = self._request(
+            "GET", f"{self._api_path}/content/{attachment_id}", params={"expand": "metadata,extensions"}
+        )
+        if raw.get("type") != "attachment":
+            raise ConfluenceValidationError(
+                f"Content {attachment_id} is a {raw.get('type')!r}, not an attachment "
+                "(use the id from get_attachments).",
+                status_code=400,
+            )
+        attachment = self._build_attachment(raw)
+        attachment_files.check_size_within_limit(attachment.file_size, max_bytes)
+        # The URL comes from an API response: never send credentials anywhere but this Confluence.
+        if not attachment.url or not attachment.url.startswith(self.config.base_url + "/"):
+            raise ConfluenceApiError(
+                f"Attachment {attachment_id} points outside {self.config.base_url}; refusing to read it."
+            )
+        response = self._stream("GET", attachment.url)
+        try:
+            data = attachment_files.read_to_memory(response.iter_content(65536), max_bytes)
+        finally:
+            response.close()
+        return {
+            **attachment.to_dict(),
+            "size_bytes": len(data),
+            **attachment_files.present_content(data, attachment.media_type, as_base64),
+        }
+
     def get_attachment_info(self, attachment_id: str) -> Dict[str, Any]:
         """Return an attachment's metadata and the page it belongs to.
 
