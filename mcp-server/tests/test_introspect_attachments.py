@@ -33,7 +33,8 @@ def test_attachment_tools_are_discovered_with_the_right_params(toolset, id_flag)
 
     up = {p.name: p for p in specs["upload_attachment"].params}
     assert up[id_flag].required is True
-    assert up["file_path"].required is True
+    assert up["file_path"].required is False
+    assert up["content"].required is False and up["content_base64"].required is False
     assert up["confirm"].kind == "bool" and up["confirm"].default is False
 
     delete = {p.name: p for p in specs["delete_attachment"].params}

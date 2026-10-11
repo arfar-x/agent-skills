@@ -75,6 +75,17 @@ def test_infra_vars_pass_through_when_present(mock_headers, monkeypatch):
     assert env["PATH"] == "/usr/bin:/bin"
 
 
+@patch(
+    "lib.credentials._get_http_headers",
+    return_value={"x-agent-skills-env-agent_skills_attachment_dir": "/"},
+)
+def test_attachment_dir_comes_from_the_server_and_no_header_can_change_it(mock_headers, monkeypatch):
+    monkeypatch.setenv("AGENT_SKILLS_ATTACHMENT_DIR", "/srv/attachments")
+    manifest = _manifest(required_env=({"name": "JIRA_BASE_URL", "required_for": "all functionality"},))
+    env = credentials.resolve_env(manifest, trust_request_credentials=True)
+    assert env["AGENT_SKILLS_ATTACHMENT_DIR"] == "/srv/attachments"
+
+
 def test_is_trusted_reflects_configure():
     credentials.configure(trust_request_credentials=True)
     assert credentials.is_trusted() is True

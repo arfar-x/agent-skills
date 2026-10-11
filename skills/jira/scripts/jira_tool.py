@@ -33,7 +33,7 @@ Usage:
     python scripts/jira_tool.py get_attachments --issue_key PAY-123
     python scripts/jira_tool.py get_attachment --attachment_id 10001 [--out_dir /path/to/dir] \\
         [--overwrite] [--max_bytes 52428800]
-    python scripts/jira_tool.py upload_attachment --issue_key PAY-123 --file_path /path/to/file \\
+    python scripts/jira_tool.py upload_attachment --issue_key PAY-123 (--content "..." | --content_base64 ... | --file_path relative/path) \\
         [--filename name.ext] [--max_bytes 52428800] [--confirm]
     python scripts/jira_tool.py delete_attachment --attachment_id 10001 [--confirm]
     python scripts/jira_tool.py triage [--project PAYKAN] [--parent_issue_types Story,Bug,Task]
@@ -213,14 +213,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = subparsers.add_parser("get_attachment", help="Download one attachment to local disk")
     p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
-    p.add_argument("--out_dir", default=None, help="Directory to save into (default: a scratch directory under the system temp dir)")
+    p.add_argument("--out_dir", default=None, help="Directory to save into, inside AGENT_SKILLS_ATTACHMENT_DIR (relative to it); refused when that is unset (default: a scratch directory under the system temp dir)")
     p.add_argument("--overwrite", action="store_true", help="Replace an existing file of the same name")
     p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse attachments larger than this (default 50 MB)")
 
-    p = subparsers.add_parser("upload_attachment", help="Attach a local file to an issue (write, gated)")
+    p = subparsers.add_parser("upload_attachment", help="Attach content or a local file to an issue (write, gated)")
     _add_common(p, issue_key=True)
-    p.add_argument("--file_path", required=True, help="Path of the local file to upload")
-    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name)")
+    p.add_argument("--file_path", default=None, help="Path of a local file to upload, inside AGENT_SKILLS_ATTACHMENT_DIR (relative to it); refused when that is unset")
+    p.add_argument("--content", default=None, help="Text to upload as the file (UTF-8), instead of --file_path; needs --filename")
+    p.add_argument("--content_base64", default=None, help="Bytes to upload as the file, base64-encoded, instead of --file_path; needs --filename")
+    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name; required with --content/--content_base64)")
     p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse files larger than this (default 50 MB)")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
@@ -408,7 +410,8 @@ def dispatch(args: argparse.Namespace):
         return get_attachment.get_attachment(args.attachment_id, args.out_dir, args.overwrite, args.max_bytes)
     if args.tool == "upload_attachment":
         return upload_attachment.upload_attachment(
-            args.issue_key, args.file_path, args.filename, args.max_bytes, confirm=args.confirm
+            args.issue_key, args.file_path, args.filename, args.max_bytes, confirm=args.confirm,
+            content=args.content, content_base64=args.content_base64,
         )
     if args.tool == "delete_attachment":
         return delete_attachment.delete_attachment(args.attachment_id, confirm=args.confirm)

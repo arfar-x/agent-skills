@@ -160,3 +160,22 @@ def test_single_attachment_payload_without_an_id_still_reports_the_requested_id(
     assert delete_attachment.delete_attachment("10001")["pending_action"]["attachment"]["id"] == "10001"
     mock_session.request.side_effect = [make_response(json_data=no_id), stream_response([b"abcd"])]
     assert get_attachment.get_attachment("10001", out_dir=str(tmp_path))["id"] == "10001"
+
+
+def test_upload_content_gate_then_posts_the_bytes(mock_session):
+    out = upload_attachment.upload_attachment("PAY-1", content="# Notes", filename="notes.md")
+    assert out["pending_action"] == {
+        "action": "upload_attachment", "issue_key": "PAY-1", "source": "content",
+        "filename": "notes.md", "size_bytes": 7, "media_type": "text/markdown",
+    }
+    mock_session.request.assert_not_called()
+    mock_session.request.return_value = make_response(json_data=[META])
+    out = upload_attachment.upload_attachment("PAY-1", content="# Notes", filename="notes.md", confirm=True)
+    assert out["confirmed"] is True
+    assert mock_session.request.call_args.kwargs["files"]["file"][:2] == ("notes.md", b"# Notes")
+
+
+def test_upload_of_a_file_outside_the_directory_fails_before_the_gate(mock_session):
+    out = upload_attachment.upload_attachment("PAY-1", "/proc/self/environ", confirm=True)
+    assert out["error"]["type"] == "invalid_input" and "outside" in out["error"]["message"]
+    mock_session.request.assert_not_called()

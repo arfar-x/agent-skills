@@ -243,6 +243,17 @@ above). Credentials still come from environment variables only, exactly as
 running the server directly -- pass them with `-e` / `--env-file`, or via
 whatever your orchestrator's secret mechanism is.
 
+**Local files.** Jira's and Confluence's attachment tools touch the local
+disk only inside one directory: set `AGENT_SKILLS_ATTACHMENT_DIR` (e.g. a
+volume mounted at `/attachments`) to let `upload_attachment --file_path`
+read from it and `get_attachment --out_dir` save into it. It is an
+operator setting -- no tool argument or request header can change it --
+and hidden or secret-looking files inside it are still refused. Leave it
+unset and no local path is accepted at all: uploads then take the file's
+content in the call (`content` / `content_base64`), which is what an MCP
+client generating a file needs anyway, and downloads go to a scratch
+directory. Never point it at a directory holding credentials or config.
+
 The image binds `0.0.0.0:8321` with no authentication unless you configure
 one -- see "Multi-user credentials and inbound auth" below. Never publish
 this container's port to a public network regardless; put it on a

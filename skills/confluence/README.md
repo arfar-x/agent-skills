@@ -177,8 +177,8 @@ Windows caveat on symlinked checkouts.
 | `get_space(space_key)` | Read | One space's identity and description |
 | `get_comments(page_id, max_results)` | Read | Every comment on a page |
 | `get_attachments(page_id, max_results)` | Read | A page's attachments (metadata only; use `get_attachment` for the content) |
-| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Confluence host |
-| `upload_attachment(page_id, file_path, filename, comment, max_bytes, confirm)` | Write (gated) | Attach a local file, or add a new version if the page already has an attachment of that name; `pending_action` shows the resolved path, name, size, and whether it replaces one |
+| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Confluence host; a chosen `out_dir` must lie inside `AGENT_SKILLS_ATTACHMENT_DIR` |
+| `upload_attachment(page_id, file_path, filename, comment, max_bytes, confirm, content, content_base64)` | Write (gated) | Attach content passed in, or a local file from inside `AGENT_SKILLS_ATTACHMENT_DIR` (never a hidden or secret-looking one; no path at all when it is unset), or add a new version if the page already has an attachment of that name; `pending_action` shows the source, name, size, and whether it replaces one |
 | `delete_attachment(attachment_id, confirm)` | Write (gated) | Permanently delete one attachment with all its versions. Content ids are shared with pages, so the id is verified to be an attachment (in the tool and again in the client) -- a page id is rejected, never deleted; `pending_action` shows the file and its page |
 | `get_children(page_id, max_results)` | Read | A page's direct child pages |
 | `get_labels(page_id)` | Read | The labels currently on a page |

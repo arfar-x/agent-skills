@@ -224,8 +224,8 @@ symlinked into `lib/credentials.py` -- see that directory's own
 | `worklog_edit(issue_key, worklog_id, duration, description, date, confirm)` | Write (gated) | Update an existing worklog's duration/description/date |
 | `worklog_delete(issue_key, worklog_id, confirm)` | Write (gated) | Permanently delete a worklog entry |
 | `get_attachments(issue_key)` | Read | An issue's attachments (id, filename, size, media type, created, author) |
-| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Jira host |
-| `upload_attachment(issue_key, file_path, filename, max_bytes, confirm)` | Write (gated) | Attach a local file; `pending_action` shows the resolved path, name, and size |
+| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Jira host; a chosen `out_dir` must lie inside `AGENT_SKILLS_ATTACHMENT_DIR` |
+| `upload_attachment(issue_key, file_path, filename, max_bytes, confirm, content, content_base64)` | Write (gated) | Attach content passed in, or a local file from inside `AGENT_SKILLS_ATTACHMENT_DIR` (never a hidden or secret-looking one; no path at all when it is unset); `pending_action` shows the source, name, and size |
 | `delete_attachment(attachment_id, confirm)` | Write (gated) | Permanently delete one attachment; the attachment is looked up first, so `pending_action` shows what would go and a wrong id fails before the gate |
 | `sprint(board_id, project)` | Read | Active sprint, board, dates, and goal; board resolved scoped to `project`/`JIRA_DEFAULT_PROJECT` by default -- reports a `note` instead of a sprint if the resolved board is kanban |
 | `kanban_status(board_id, project)` | Read | A kanban board's columns and per-column issue counts, resolved the same way as `sprint` |

@@ -62,3 +62,10 @@ def make_response(status_code=200, json_data=None, headers=None, text=""):
     response.json.return_value = json_data if json_data is not None else {}
     response.reason = "Error"
     return response
+
+
+@pytest.fixture(autouse=True)
+def _attachment_dir(tmp_path, monkeypatch):
+    """Local attachment files are confined to AGENT_SKILLS_ATTACHMENT_DIR;
+    tests that use tmp_path for files get it as that directory."""
+    monkeypatch.setenv("AGENT_SKILLS_ATTACHMENT_DIR", str(tmp_path))

@@ -605,7 +605,14 @@ class ConfluenceClient:
         return None
 
     def upload_attachment(
-        self, page_id: str, file_path: str, filename: Optional[str] = None, comment: Optional[str] = None
+        self,
+        page_id: str,
+        file_path: Optional[str] = None,
+        filename: Optional[str] = None,
+        comment: Optional[str] = None,
+        *,
+        content: Optional[str] = None,
+        content_base64: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Attach a local file to a page, or add a new version if that name already exists.
 
@@ -613,12 +620,12 @@ class ConfluenceClient:
         existing one is updated in place (new version) instead.
         """
         self._require_page_id(page_id)
-        info = attachment_files.describe_upload_file(file_path, filename)
+        info = attachment_files.describe_upload(file_path, content, content_base64, filename)
         existing = self.find_attachment_by_name(page_id, info["filename"])
         path = f"{self._api_path}/content/{page_id}/child/attachment"
         if existing:
             path += f"/{existing.id}/data"
-        with open(info["path"], "rb") as handle:
+        with attachment_files.upload_body(info) as handle:
             parts: Dict[str, Any] = {
                 "file": (info["filename"], handle, info["media_type"]),
                 "minorEdit": (None, "true"),

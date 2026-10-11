@@ -104,6 +104,29 @@ def test_upload_bad_file_fails_before_any_request(mock_session, tmp_path):
     mock_session.request.assert_not_called()
 
 
+def test_upload_content_posts_the_bytes_without_any_local_file(mock_session, monkeypatch):
+    monkeypatch.delenv("AGENT_SKILLS_ATTACHMENT_DIR")
+    mock_session.request.side_effect = [
+        make_response(json_data={"results": []}),
+        make_response(json_data={"results": []}),
+        make_response(json_data={"results": [{**RAW, "id": "778", "title": "chart.svg"}]}),
+    ]
+    gate = upload_attachment.upload_attachment("1", content="<svg/>", filename="chart.svg")
+    assert gate["pending_action"]["source"] == "content" and "file_path" not in gate["pending_action"]
+    out = upload_attachment.upload_attachment("1", content="<svg/>", filename="chart.svg", confirm=True)
+    assert out["confirmed"] is True
+    assert mock_session.request.call_args.kwargs["files"]["file"][:2] == ("chart.svg", b"<svg/>")
+
+
+def test_upload_from_a_path_is_refused_without_the_directory(mock_session, tmp_path, monkeypatch):
+    monkeypatch.delenv("AGENT_SKILLS_ATTACHMENT_DIR")
+    f = tmp_path / "a.txt"
+    f.write_text("x")
+    out = upload_attachment.upload_attachment("1", str(f), confirm=True)
+    assert out["error"]["type"] == "invalid_input" and "disabled" in out["error"]["message"]
+    mock_session.request.assert_not_called()
+
+
 WITH_PAGE = {**RAW, "container": {"id": "1", "title": "My page"}}
 
 

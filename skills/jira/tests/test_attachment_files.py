@@ -94,3 +94,127 @@ def test_describe_upload_file_rejects_bad_input(tmp_path):
         describe_upload_file(str(tmp_path / "big.txt"), max_bytes=4)
     with pytest.raises(AttachmentFileError):
         describe_upload_file("  ")
+
+
+# --- Confinement to AGENT_SKILLS_ATTACHMENT_DIR -----------------------------
+# conftest sets the directory to tmp_path; these tests move or unset it.
+
+import base64  # noqa: E402
+
+from lib.attachment_files import ATTACHMENT_DIR_ENV, describe_upload, describe_upload_content  # noqa: E402
+
+
+@pytest.fixture
+def root(tmp_path, monkeypatch):
+    path = tmp_path / "root"
+    path.mkdir()
+    monkeypatch.setenv(ATTACHMENT_DIR_ENV, str(path))
+    return path
+
+
+def test_upload_from_a_path_is_disabled_without_the_directory(tmp_path, monkeypatch):
+    monkeypatch.delenv(ATTACHMENT_DIR_ENV)
+    f = tmp_path / "notes.txt"
+    f.write_text("hello")
+    with pytest.raises(AttachmentFileError, match="disabled"):
+        describe_upload_file(str(f))
+
+
+def test_relative_paths_are_taken_from_the_directory(root):
+    (root / "sub").mkdir()
+    (root / "sub" / "a.txt").write_text("x")
+    assert describe_upload_file("sub/a.txt")["path"] == str((root / "sub" / "a.txt").resolve())
+
+
+@pytest.mark.parametrize("path", ["/proc/self/environ", "/etc/hostname", "../outside.txt", "sub/../../outside.txt"])
+def test_paths_outside_the_directory_are_refused(root, path):
+    (root.parent / "outside.txt").write_text("secret")
+    (root / "sub").mkdir()
+    with pytest.raises(AttachmentFileError, match="outside the attachment directory"):
+        describe_upload_file(path)
+
+
+def test_a_symlink_out_of_the_directory_is_refused(root):
+    (root.parent / "outside.txt").write_text("secret")
+    (root / "link.txt").symlink_to(root.parent / "outside.txt")
+    with pytest.raises(AttachmentFileError, match="outside the attachment directory"):
+        describe_upload_file("link.txt")
+
+
+def test_a_symlink_to_a_secret_inside_the_directory_is_refused(root):
+    (root / ".env").write_text("TOKEN=x")
+    (root / "notes.txt").symlink_to(root / ".env")
+    with pytest.raises(AttachmentFileError, match="hidden"):
+        describe_upload_file("notes.txt")
+
+
+@pytest.mark.parametrize(
+    "name", [".env", ".env.local", "prod.env", ".ssh/id_rsa", "keys/id_ed25519", "server.pem", "tls.key",
+             "store.p12", "credentials", "secrets.json", ".git/config"],
+)
+def test_hidden_and_secret_looking_files_are_refused_inside_the_directory(root, name):
+    target = root / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("x")
+    with pytest.raises(AttachmentFileError, match="hidden|secret"):
+        describe_upload_file(name)
+
+
+@pytest.mark.parametrize("value", ["/", "/does/not/exist"])
+def test_an_unusable_directory_setting_is_an_error(tmp_path, monkeypatch, value):
+    monkeypatch.setenv(ATTACHMENT_DIR_ENV, value)
+    f = tmp_path / "a.txt"
+    f.write_text("x")
+    with pytest.raises(AttachmentFileError, match=ATTACHMENT_DIR_ENV):
+        describe_upload_file(str(f))
+
+
+def test_download_out_dir_must_be_inside_the_directory(root):
+    assert prepare_download_target("a.txt", "saved", "jira").parent == (root / "saved").resolve()
+    for out_dir in ("/tmp", "../elsewhere", ".hidden"):
+        with pytest.raises(AttachmentFileError):
+            prepare_download_target("a.txt", out_dir, "jira")
+
+
+def test_download_out_dir_is_disabled_without_the_directory_but_scratch_works(tmp_path, monkeypatch):
+    monkeypatch.delenv(ATTACHMENT_DIR_ENV)
+    with pytest.raises(AttachmentFileError, match="disabled"):
+        prepare_download_target("a.txt", str(tmp_path), "jira")
+    assert prepare_download_target("a.txt", None, "jira", overwrite=True).name == "a.txt"
+
+
+# --- Uploading content instead of a file ------------------------------------
+
+
+def test_content_upload_needs_no_directory(monkeypatch):
+    monkeypatch.delenv(ATTACHMENT_DIR_ENV)
+    info = describe_upload_content(content="سلام", filename="note.md")
+    assert info["data"] == "سلام".encode() and info["filename"] == "note.md" and info["size_bytes"] == 8
+    raw = describe_upload_content(content_base64=base64.b64encode(b"\x89PNG").decode(), filename="a/../x.png")
+    assert raw == {"data": b"\x89PNG", "filename": "x.png", "size_bytes": 4, "media_type": "image/png"}
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"filename": "a.txt"}, "exactly one"),
+        ({"content": "x", "content_base64": "eA==", "filename": "a.txt"}, "exactly one"),
+        ({"content": "x"}, "filename"),
+        ({"content_base64": "not base64!", "filename": "a.bin"}, "base64"),
+        ({"content": "", "filename": "a.txt"}, "empty"),
+        ({"content": "12345", "filename": "a.txt", "max_bytes": 4}, "limit"),
+    ],
+)
+def test_content_upload_rejects_bad_input(kwargs, message):
+    with pytest.raises(AttachmentFileError, match=message):
+        describe_upload_content(**kwargs)
+
+
+def test_describe_upload_takes_exactly_one_source(root):
+    (root / "a.txt").write_text("x")
+    assert describe_upload("a.txt")["path"].endswith("a.txt")
+    assert describe_upload(content="x", filename="b.txt")["data"] == b"x"
+    with pytest.raises(AttachmentFileError, match="not both"):
+        describe_upload("a.txt", content="x", filename="b.txt")
+    with pytest.raises(AttachmentFileError, match="Nothing to upload"):
+        describe_upload()

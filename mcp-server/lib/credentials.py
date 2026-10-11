@@ -75,6 +75,11 @@ _INFRA_ENV_VARS = frozenset(
         "SSL_CERT_DIR",
         "REQUESTS_CA_BUNDLE",
         "CURL_CA_BUNDLE",
+        # The only directory attachment tools may read local files from or
+        # save into (skills/_shared/attachments/files.py). Operator-set:
+        # being an infra var, never a declared one, no request header can
+        # change it.
+        "AGENT_SKILLS_ATTACHMENT_DIR",
     }
 )
 

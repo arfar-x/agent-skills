@@ -844,11 +844,19 @@ class JiraClient:
         """Permanently delete an attachment. Callers gate this."""
         self._request("DELETE", f"{self.API_V2}/attachment/{attachment_id}")
 
-    def upload_attachment(self, issue_key: str, file_path: str, filename: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Attach a local file to an issue. Returns the created attachment(s)."""
+    def upload_attachment(
+        self,
+        issue_key: str,
+        file_path: Optional[str] = None,
+        filename: Optional[str] = None,
+        *,
+        content: Optional[str] = None,
+        content_base64: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Attach a local file, or content passed in, to an issue. Returns the created attachment(s)."""
         self._require_issue_key(issue_key)
-        info = attachment_files.describe_upload_file(file_path, filename)
-        with open(info["path"], "rb") as handle:
+        info = attachment_files.describe_upload(file_path, content, content_base64, filename)
+        with attachment_files.upload_body(info) as handle:
             raw = self._request(
                 "POST",
                 f"{self.API_V2}/issue/{issue_key}/attachments",

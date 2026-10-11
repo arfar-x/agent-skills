@@ -258,7 +258,10 @@ flowchart TB
   `LANG`/`LANGUAGE`/`LC_ALL`/`LC_CTYPE`, `TMPDIR`/`TMP`/`TEMP`,
   `PYTHONPATH`/`PYTHONIOENCODING`/`PYTHONUTF8`, and proxy/CA-bundle vars
   (`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` in both cases,
-  `SSL_CERT_FILE`/`SSL_CERT_DIR`/`REQUESTS_CA_BUNDLE`/`CURL_CA_BUNDLE`).
+  `SSL_CERT_FILE`/`SSL_CERT_DIR`/`REQUESTS_CA_BUNDLE`/`CURL_CA_BUNDLE`),
+  plus `AGENT_SKILLS_ATTACHMENT_DIR`, the one directory attachment tools
+  may read or write local files in -- an infra var, not a declared one,
+  precisely so no request header can widen it.
   None of these are ever toolset-specific credentials, and they're
   necessary for the subprocess to function at all -- **`PATH` in
   particular is load-bearing**: confirmed empirically that

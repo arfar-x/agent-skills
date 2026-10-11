@@ -26,7 +26,7 @@ Usage:
     python scripts/confluence_tool.py get_attachment --attachment_id 98765432 [--out_dir /path/to/dir] \\
         [--overwrite] [--max_bytes 52428800]
     python scripts/confluence_tool.py delete_attachment --attachment_id 98765432 [--confirm]
-    python scripts/confluence_tool.py upload_attachment --page_id 12345678 --file_path /path/to/file \\
+    python scripts/confluence_tool.py upload_attachment --page_id 12345678 (--content "..." | --content_base64 ... | --file_path relative/path) \\
         [--filename name.ext] [--comment "..."] [--max_bytes 52428800] [--confirm]
     python scripts/confluence_tool.py get_children --page_id 12345678
     python scripts/confluence_tool.py get_labels --page_id 12345678
@@ -154,17 +154,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = subparsers.add_parser("get_attachment", help="Download one page attachment to local disk")
     p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
-    p.add_argument("--out_dir", default=None, help="Directory to save into (default: a scratch directory under the system temp dir)")
+    p.add_argument("--out_dir", default=None, help="Directory to save into, inside AGENT_SKILLS_ATTACHMENT_DIR (relative to it); refused when that is unset (default: a scratch directory under the system temp dir)")
     p.add_argument("--overwrite", action="store_true", help="Replace an existing file of the same name")
     p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse attachments larger than this (default 50 MB)")
 
     p = subparsers.add_parser(
         "upload_attachment",
-        help="Attach a local file to a page, or add a new version if the name exists (write, gated)",
+        help="Attach content or a local file to a page, or add a new version if the name exists (write, gated)",
     )
     _add_page_id(p)
-    p.add_argument("--file_path", required=True, help="Path of the local file to upload")
-    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name)")
+    p.add_argument("--file_path", default=None, help="Path of a local file to upload, inside AGENT_SKILLS_ATTACHMENT_DIR (relative to it); refused when that is unset")
+    p.add_argument("--content", default=None, help="Text to upload as the file (UTF-8), instead of --file_path; needs --filename")
+    p.add_argument("--content_base64", default=None, help="Bytes to upload as the file, base64-encoded, instead of --file_path; needs --filename")
+    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name; required with --content/--content_base64)")
     p.add_argument("--comment", default=None, help="Version comment shown in the attachment history")
     p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse files larger than this (default 50 MB)")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
@@ -293,7 +295,8 @@ def dispatch(args: argparse.Namespace):
         return get_attachment.get_attachment(args.attachment_id, args.out_dir, args.overwrite, args.max_bytes)
     if args.tool == "upload_attachment":
         return upload_attachment.upload_attachment(
-            args.page_id, args.file_path, args.filename, args.comment, args.max_bytes, confirm=args.confirm
+            args.page_id, args.file_path, args.filename, args.comment, args.max_bytes, confirm=args.confirm,
+            content=args.content, content_base64=args.content_base64,
         )
     if args.tool == "delete_attachment":
         return delete_attachment.delete_attachment(args.attachment_id, confirm=args.confirm)
