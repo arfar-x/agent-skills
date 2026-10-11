@@ -24,6 +24,11 @@ purpose.
 ## Layout
 
 ```
+attachments/
+└── files.py  # Local-file side of attachment upload/download: safe remote
+              # file names, no-overwrite atomic capped download writes,
+              # upload-file validation. No HTTP -- each toolset's client
+              # does its own requests. Used by Jira and Confluence.
 credentials/
 └── http.py   # Credential protocol + BasicCredential/BearerCredential/
               # NoCredential -- the HTTP-session family. Used by any
@@ -37,6 +42,7 @@ e.g.:
 
 ```bash
 ln -s ../../_shared/credentials/http.py skills/jira/lib/credentials.py
+ln -s ../../_shared/attachments/files.py skills/jira/lib/attachment_files.py
 ```
 
 **Windows note:** if a checkout has `git config core.symlinks false` (some

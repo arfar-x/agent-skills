@@ -25,8 +25,8 @@ and sessions.
   unresolved "blocked by" links, flagged comments). `blockers()` and
   `my_work()` both use it, so they can never disagree.
 - **Write operations are gated.** `worklog()`, `worklog_edit()`,
-  `worklog_delete()`, `transition()`, `create_issue()`, and `edit_issue()`
-  refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
+  `worklog_delete()`, `transition()`, `create_issue()`, `edit_issue()`,
+  `upload_attachment()`, and `delete_attachment()` refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
   or `JIRA_AUTO_CONFIRM_WRITES=true` is set. This backs up `SKILL.md`'s
   confirmation rule with an enforced safety net in code.
 - **Fields are fetched and returned on demand, not by fixed set.**
@@ -137,6 +137,10 @@ skills/jira/
 │   ├── worklog.py
 │   ├── worklog_edit.py
 │   ├── worklog_delete.py
+│   ├── get_attachments.py
+│   ├── get_attachment.py
+│   ├── upload_attachment.py
+│   ├── delete_attachment.py
 │   ├── transition.py
 │   ├── search.py
 │   ├── search_users.py
@@ -219,6 +223,10 @@ symlinked into `lib/credentials.py` -- see that directory's own
 | `worklog(issue_key, duration, description, date, confirm)` | Write (gated) | Log time against an issue, optionally backdated |
 | `worklog_edit(issue_key, worklog_id, duration, description, date, confirm)` | Write (gated) | Update an existing worklog's duration/description/date |
 | `worklog_delete(issue_key, worklog_id, confirm)` | Write (gated) | Permanently delete a worklog entry |
+| `get_attachments(issue_key)` | Read | An issue's attachments (id, filename, size, media type, created, author) |
+| `get_attachment(attachment_id, out_dir, overwrite, max_bytes)` | Read (writes a local file) | Download one attachment and return its `saved_to` path. Sanitized name, no overwrite unless asked, size-capped, atomic; the download URL must be on the configured Jira host |
+| `upload_attachment(issue_key, file_path, filename, max_bytes, confirm)` | Write (gated) | Attach a local file; `pending_action` shows the resolved path, name, and size |
+| `delete_attachment(attachment_id, confirm)` | Write (gated) | Permanently delete one attachment; the attachment is looked up first, so `pending_action` shows what would go and a wrong id fails before the gate |
 | `sprint(board_id, project)` | Read | Active sprint, board, dates, and goal; board resolved scoped to `project`/`JIRA_DEFAULT_PROJECT` by default -- reports a `note` instead of a sprint if the resolved board is kanban |
 | `kanban_status(board_id, project)` | Read | A kanban board's columns and per-column issue counts, resolved the same way as `sprint` |
 | `worklog_report(since, until, max_issues)` | Read | Aggregate your logged time over a date range vs. each issue's estimate |
@@ -265,6 +273,12 @@ repeated here. **Parent skill for every row below: `jira`.**
 | `jira-create-issue` | `create_issue` | Write (gated) |
 | `jira-edit-issue` | `edit_issue` | Write (gated) |
 | `jira-project-context` | `project_context` | Read |
+
+The attachment tools (`get_attachments`, `get_attachment`,
+`upload_attachment`, `delete_attachment`) have no dedicated wrapper -- reach them through the
+parent `jira` skill's own CLI, as documented in `SKILL.md`'s "Commands"
+section. Skipping a wrapper never weakens the write-gating on
+`upload_attachment`/`delete_attachment`; that gate lives in the tool's code.
 
 Install one thin skill by name (`npx skills add arfar-x/agent-skills
 --skill jira-my-work`) if you only want that one slash command, or

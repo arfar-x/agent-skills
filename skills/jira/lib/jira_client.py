@@ -37,6 +37,7 @@ from .models import (
     User,
     Worklog,
 )
+from . import attachment_files
 from .utils import adf_to_plain_text, safe_get
 
 logger = logging.getLogger("jira_skill.client")
@@ -291,6 +292,8 @@ class JiraClient:
         *,
         params: Optional[Dict[str, Any]] = None,
         json_body: Optional[Dict[str, Any]] = None,
+        files: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, Any]] = None,
         cache: bool = False,
     ) -> Any:
         url = f"{self.config.base_url}{path}"
@@ -309,6 +312,8 @@ class JiraClient:
                 url,
                 params=params,
                 json=json_body,
+                **({"files": files} if files else {}),
+                **({"headers": headers} if headers else {}),
                 timeout=self.config.timeout_seconds,
             )
         except requests.exceptions.Timeout as exc:
@@ -783,6 +788,93 @@ class JiraClient:
         if not worklog_id or not str(worklog_id).strip():
             raise JiraValidationError("worklog_id is required.")
         self._request("DELETE", f"{self.API_V2}/issue/{issue_key}/worklog/{worklog_id}")
+
+    # ------------------------------------------------------------------
+    # Attachments
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _build_attachment(raw: Dict[str, Any], fallback_id: str = "") -> Dict[str, Any]:
+        # GET /attachment/{id} does not echo the id back on every Jira version, so the
+        # id the caller asked for is used when the payload has none.
+        return {
+            "id": str(raw.get("id") or fallback_id),
+            "filename": raw.get("filename"),
+            "size_bytes": raw.get("size"),
+            "media_type": raw.get("mimeType"),
+            "created": raw.get("created"),
+            "author": safe_get(raw, "author", "displayName"),
+        }
+
+    def get_attachments(self, issue_key: str) -> List[Dict[str, Any]]:
+        """List an issue's attachments (metadata only)."""
+        self._require_issue_key(issue_key)
+        raw = self._request("GET", f"{self.API_V2}/issue/{issue_key}", params={"fields": "attachment"})
+        return [self._build_attachment(a) for a in safe_get(raw, "fields", "attachment") or []]
+
+    def download_attachment(
+        self,
+        attachment_id: str,
+        out_dir: Optional[str] = None,
+        overwrite: bool = False,
+        max_bytes: int = attachment_files.DEFAULT_MAX_BYTES,
+    ) -> Dict[str, Any]:
+        """Save one attachment to local disk and describe where it went."""
+        meta = self._request("GET", f"{self.API_V2}/attachment/{attachment_id}")
+        info = self._build_attachment(meta, attachment_id)
+        attachment_files.check_size_within_limit(info["size_bytes"], max_bytes)
+        target = attachment_files.prepare_download_target(info["filename"], out_dir, "jira", overwrite)
+
+        content_url = meta.get("content") or ""
+        # The URL comes from an API response: never send credentials anywhere but this Jira.
+        if not content_url.startswith(self.config.base_url + "/"):
+            raise JiraApiError(f"Attachment {attachment_id} points outside {self.config.base_url}; refusing to download it.")
+        response = self._stream("GET", content_url)
+        try:
+            written = attachment_files.stream_to_file(response.iter_content(65536), target, max_bytes)
+        finally:
+            response.close()
+        return {**info, "saved_to": str(target), "size_bytes": written}
+
+    def get_attachment_info(self, attachment_id: str) -> Dict[str, Any]:
+        """Return one attachment's metadata (404 if it doesn't exist)."""
+        return self._build_attachment(self._request("GET", f"{self.API_V2}/attachment/{attachment_id}"), attachment_id)
+
+    def delete_attachment(self, attachment_id: str) -> None:
+        """Permanently delete an attachment. Callers gate this."""
+        self._request("DELETE", f"{self.API_V2}/attachment/{attachment_id}")
+
+    def upload_attachment(self, issue_key: str, file_path: str, filename: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Attach a local file to an issue. Returns the created attachment(s)."""
+        self._require_issue_key(issue_key)
+        info = attachment_files.describe_upload_file(file_path, filename)
+        with open(info["path"], "rb") as handle:
+            raw = self._request(
+                "POST",
+                f"{self.API_V2}/issue/{issue_key}/attachments",
+                files={"file": (info["filename"], handle, info["media_type"])},
+                # Jira requires this header on multipart uploads (XSRF check); the session's
+                # default JSON Content-Type must be dropped so requests can set the multipart boundary.
+                headers={"X-Atlassian-Token": "no-check", "Content-Type": None},
+            )
+        return [self._build_attachment(a) for a in raw or []]
+
+    def _stream(self, method: str, url: str) -> requests.Response:
+        """Open a streamed (non-JSON) response, raising the usual typed errors."""
+        try:
+            response = self.session.request(
+                method,
+                url,
+                stream=True,
+                headers={"Accept": "*/*"},
+                timeout=self.config.timeout_seconds,
+            )
+        except requests.exceptions.Timeout as exc:
+            raise JiraApiError(f"Timed out contacting Jira at {url} after {self.config.timeout_seconds}s") from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise JiraApiError(f"Could not connect to Jira at {self.config.base_url}: {exc}") from exc
+        self._raise_for_status(response)
+        return response
 
     def get_transitions(self, issue_key: str) -> List[Transition]:
         """List transitions currently available for an issue."""

@@ -30,6 +30,12 @@ Usage:
     python scripts/jira_tool.py worklog_edit --issue_key PAY-123 --worklog_id 28459 \\
         [--duration 2h] [--description "..."] [--date 2026-07-20] [--confirm]
     python scripts/jira_tool.py worklog_delete --issue_key PAY-123 --worklog_id 28459 [--confirm]
+    python scripts/jira_tool.py get_attachments --issue_key PAY-123
+    python scripts/jira_tool.py get_attachment --attachment_id 10001 [--out_dir /path/to/dir] \\
+        [--overwrite] [--max_bytes 52428800]
+    python scripts/jira_tool.py upload_attachment --issue_key PAY-123 --file_path /path/to/file \\
+        [--filename name.ext] [--max_bytes 52428800] [--confirm]
+    python scripts/jira_tool.py delete_attachment --attachment_id 10001 [--confirm]
     python scripts/jira_tool.py triage [--project PAYKAN] [--parent_issue_types Story,Bug,Task]
     python scripts/jira_tool.py search_users --query john [--project PAYKAN] [--all_projects]
     python scripts/jira_tool.py create_issue --project PAYKAN --summary "..." \\
@@ -58,11 +64,15 @@ _SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _SKILL_ROOT not in sys.path:
     sys.path.insert(0, _SKILL_ROOT)
 
+from lib.attachment_files import DEFAULT_MAX_BYTES  # noqa: E402
 from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     blockers,
     create_issue,
+    delete_attachment,
     edit_issue,
+    get_attachment,
+    get_attachments,
     issue_summary,
     kanban_status,
     list_fields,
@@ -74,6 +84,7 @@ from tools import (  # noqa: E402
     sprint,
     transition,
     triage,
+    upload_attachment,
     worklog,
     worklog_delete,
     worklog_edit,
@@ -195,6 +206,26 @@ def build_parser() -> argparse.ArgumentParser:
     p = subparsers.add_parser("worklog_delete", help="Permanently delete a worklog entry (write, gated)")
     _add_common(p, issue_key=True)
     p.add_argument("--worklog_id", required=True, help="Worklog entry id, e.g. from issue_summary's worklogs[].id")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser("get_attachments", help="List an issue's attachments (metadata only)")
+    _add_common(p, issue_key=True)
+
+    p = subparsers.add_parser("get_attachment", help="Download one attachment to local disk")
+    p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
+    p.add_argument("--out_dir", default=None, help="Directory to save into (default: a scratch directory under the system temp dir)")
+    p.add_argument("--overwrite", action="store_true", help="Replace an existing file of the same name")
+    p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse attachments larger than this (default 50 MB)")
+
+    p = subparsers.add_parser("upload_attachment", help="Attach a local file to an issue (write, gated)")
+    _add_common(p, issue_key=True)
+    p.add_argument("--file_path", required=True, help="Path of the local file to upload")
+    p.add_argument("--filename", default=None, help="Name to give the attachment (default: the file's own name)")
+    p.add_argument("--max_bytes", type=int, default=DEFAULT_MAX_BYTES, help="Refuse files larger than this (default 50 MB)")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser("delete_attachment", help="Permanently delete one attachment (destructive write, gated)")
+    p.add_argument("--attachment_id", required=True, help="Attachment id, from get_attachments")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser(
@@ -359,6 +390,16 @@ def dispatch(args: argparse.Namespace):
         )
     if args.tool == "worklog_delete":
         return worklog_delete.worklog_delete(args.issue_key, args.worklog_id, confirm=args.confirm)
+    if args.tool == "get_attachments":
+        return get_attachments.get_attachments(args.issue_key)
+    if args.tool == "get_attachment":
+        return get_attachment.get_attachment(args.attachment_id, args.out_dir, args.overwrite, args.max_bytes)
+    if args.tool == "upload_attachment":
+        return upload_attachment.upload_attachment(
+            args.issue_key, args.file_path, args.filename, args.max_bytes, confirm=args.confirm
+        )
+    if args.tool == "delete_attachment":
+        return delete_attachment.delete_attachment(args.attachment_id, confirm=args.confirm)
     if args.tool == "triage":
         parent_types = args.parent_issue_types.split(",") if args.parent_issue_types else None
         return triage.triage(
