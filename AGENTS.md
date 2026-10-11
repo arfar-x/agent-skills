@@ -329,6 +329,17 @@ These apply repo-wide, to every toolset, not just Jira:
   `README.md`, test, or example -- when illustrating the pattern, use an
   obviously generic placeholder instead.
 
+- **Commit messages follow [Conventional Commits](https://www.conventionalcommits.org)**
+  (`type: subject`, optionally `type(scope): subject`; `feat`, `fix`,
+  `docs`, `refactor`, `test`, `chore`, ...). Don't use scopes
+  excessively: think at the level of the change, not the file or
+  module -- leave the scope off unless it genuinely tells a reader
+  something the subject doesn't (e.g. which toolset a `feat` is for
+  when several exist). The body says **what** changed and why it
+  matters to a user or maintainer, never **how** it was implemented --
+  the diff already shows how. A body that walks through functions,
+  helpers, or steps is a sign it should be shorter.
+
 - **Releases and skill versions follow [SemVer](https://semver.org)**
   (`MAJOR.MINOR.PATCH`). Two separate surfaces carry a version, both
   governed by the same rules:
