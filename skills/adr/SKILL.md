@@ -7,7 +7,7 @@ description: >-
   made or being made. Use when the user asks to write/draft an ADR,
   record a design/architecture decision, or document why one option was
   chosen over another for future readers.
-version: 1.0.1
+version: 1.1.0
 metadata:
   category: software-development
   doc_type: adr
@@ -60,12 +60,13 @@ ADRs' own numbering -- ADRs are sequential decisions, not per-day
 documents, and (unlike `prd`/`trd`'s folder-per-doc) are conventionally a
 single flat file:
 
-1. An explicit user instruction wins.
-2. If `docs/ADRs/` already exists, match its existing numbering/filename
-   convention instead of the default below (e.g. it may already use
+1. An explicit user instruction wins -- including a number the user
+   gives.
+2. In a repository, if `docs/ADRs/` already exists, match its
+   existing numbering/filename convention instead of the default below (e.g. it may already use
    3-digit numbers, a different directory name, or a folder-per-ADR
    shape -- consistency with what's on disk beats this default).
-3. Otherwise:
+3. Otherwise, in a repository:
 
    ```
    docs/ADRs/NNNN-short-descriptive-title.md
@@ -76,6 +77,27 @@ single flat file:
    increment it (start at `0001` if none exist yet). Unlike `prd`/`trd`,
    this sequence is never reset by date. Don't renumber or rename
    existing ADRs.
+
+4. **Not in a repository** (for example, called over MCP or from a chat
+   with no project checkout), steps 2-3 can't run. Look at the
+   **siblings** instead -- other ADRs where this one is going: the wiki
+   space or parent page it will be published under, the folder it will
+   be saved in, or ADRs the user pasted or linked in this conversation.
+   Infer their pattern (prefix, digit width, separator), take the
+   highest number plus 1, and name this ADR the same way.
+5. **No siblings visible:** use a unique id already in the context --
+   the number of the ticket this ADR is for (`PROJ-123` gives `0123`),
+   or a number the user mentioned ("ADR number 12" gives `0012`). Pad
+   to 4 digits; never truncate a longer number.
+6. **Still nothing:** ask the user once -- for the number, or for where
+   earlier ADRs live so you can look at them.
+
+Don't ask every time. Once a number is settled in a conversation, the
+next ADR continues from it (+1) without asking. If you have a memory
+feature, remember **where** this workspace's ADRs live and **how**
+they're named -- that's stable -- but never the last number: other
+people add ADRs, so re-derive it from the siblings each time. Never
+say a number was checked against siblings you couldn't actually see.
 
 ## Output structure
 

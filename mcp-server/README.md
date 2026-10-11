@@ -310,7 +310,13 @@ Fixed tools that exist regardless of which toolsets are installed:
   doc-generation skill needs today's real date for its file-naming
   convention or a Date/Last-updated field, and a model reachable only
   through this server has no shell or system clock of its own to get
-  that from otherwise. Use it instead of guessing.
+  that from otherwise. Use it instead of guessing. A document's sequence
+  number is not something this server can supply -- there's no project
+  checkout to list -- so each numbered skill's own "Where to save it"
+  (or `product-spec`'s "Numbering") section covers that case itself:
+  match the sibling documents where this one is going, else use an id
+  from the context (a ticket number, a number the user gave), and only
+  then ask.
 
 ## Known limitations
 

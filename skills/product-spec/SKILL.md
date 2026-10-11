@@ -9,7 +9,7 @@ description: >-
   Spec Kit's plan step. Never implements anything and never describes
   how to build it. Use when someone asks to spec out a feature, write a
   product spec or requirements, or prepare a feature for development.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: productivity
   doc_type: product-spec
@@ -99,7 +99,7 @@ leaving it empty. Keep the headings exactly as written; the
 ```markdown
 # Feature Specification: <Feature name>
 
-**Feature Branch**: `[###-feature-name]`
+**Feature Branch**: `<NNN>-<feature-slug>` (the number from "Numbering" below)
 
 **Created**: <YYYY-MM-DD>
 
@@ -201,14 +201,44 @@ is not approval.
 ## Delivery
 
 The output is the Markdown document itself. Where it goes is the
-caller's choice:
+caller's choice: a file in a repository, a wiki page, a ticket, or just
+the chat. Don't claim to have saved or published anything you didn't.
 
-- **In a repository using Spec Kit**: `specs/NNN-<feature-slug>/spec.md`,
-  where `NNN` is the next free number. Spec Kit's commands then work on it
-  directly.
-- **In a chat or agent setting**: return the document. The surrounding
-  agent decides whether to show it, publish it to a wiki, or turn it into
-  tickets. Don't claim to have saved or published anything you didn't.
+### Numbering
+
+Every spec gets a number `NNN` -- 3 digits, zero-padded (`007`, `010`,
+`123`; a longer number such as `4521` is kept whole, never truncated).
+It goes into the file or page name and the template's
+`**Feature Branch**` line. Work it out in this order, and stop at the
+first step that gives one:
+
+1. **The user said so.** A location, naming scheme or number the user
+   gives wins ("this is feature number 10" means `010`).
+2. **In a repository** (you can list the project's files): if it
+   already has specs, match their location and naming. Otherwise save
+   to Spec Kit's layout, `specs/NNN-<feature-slug>/spec.md`, so Spec
+   Kit's commands work on it directly. Either way `NNN` is the highest
+   existing number plus 1 (`001` if there are none).
+3. **Not in a repository** (for example, called over MCP or from a chat
+   with no project checkout): look at the **siblings** -- other specs
+   where this one is going: the wiki space or parent page it will be
+   published under, the folder or ticket it will be attached to, or
+   specs the user pasted or linked in this conversation. Infer their
+   pattern (prefix, digit width, separator), take the highest number
+   plus 1, and name this spec the same way.
+4. **No siblings visible:** use a unique id already in the context --
+   the number of the ticket this spec is for (`PROJ-123` gives `123`,
+   with the key kept in the slug: `123-<feature-slug>-PROJ-123`), or a
+   number the user mentioned earlier in the conversation.
+5. **Still nothing:** ask the user once -- for the number, or for where
+   earlier specs live so you can look at them.
+
+Don't ask every time. Once a number is settled in a conversation, the
+next spec continues from it (+1) without asking. If you have a memory
+feature, remember **where** this workspace's specs live and **how**
+they're named -- that's stable -- but never the last number: other
+people add specs, so re-derive it from the siblings each time. Never
+say a number was checked against siblings you couldn't actually see.
 
 When converting the document to another markup (a wiki's own format,
 for instance), keep every heading, id and scenario word for word, so it

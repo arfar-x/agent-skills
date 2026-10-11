@@ -9,7 +9,7 @@ description: >-
   for developers, QA, and stakeholders -- and when a feature/PRD is
   completed, started, a migration lands, a design decision is locked, or
   something is deferred and CURRENT_STATE.md needs updating.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: productivity
   doc_type: prd
@@ -100,6 +100,27 @@ default:
 
    Do not renumber or rename any existing PRD directories that predate
    this convention -- the daily sequence only applies going forward.
+
+**Not in a repository** (for example, called over MCP or from a chat
+with no project checkout), the directory listing above can't run. The
+date part still works -- `current_date` or your clock gives it -- and
+the rest comes from, in order:
+
+1. **Siblings.** Look at other PRDs where this one is going: the wiki
+   space or parent page it will be published under, the folder it will
+   be saved in, or PRDs the user pasted or linked in this conversation.
+   Match their naming pattern; if they use the dated `NN` sequence, take
+   the highest `NN` for today plus 1.
+2. **No siblings visible:** use `01`, and put any ticket key from the
+   context at the end of the slug as above (`...-PROJ-123`) -- the date
+   plus the slug already keeps the name unique. Don't ask the user for a
+   daily sequence number; they can't know it either.
+
+Once a name is settled in a conversation, the next PRD that day
+continues from it (+1). If you have a memory feature, remember **where**
+this workspace's PRDs live and **how** they're named, never the last
+number -- re-derive it from the siblings each time. Never say a number
+was checked against siblings you couldn't actually see.
 
 ## Output structure
 

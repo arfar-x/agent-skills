@@ -8,7 +8,7 @@ description: >-
   design the technical solution for a feature, or turn a PRD into an
   implementation-ready architecture doc for engineers, QA, DevOps, and
   security reviewers.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   doc_type: trd
@@ -75,6 +75,27 @@ Same convention-check as the [`prd`](../prd) skill:
    2-digit daily sequence number (highest existing `NN` for today + 1,
    or `01` if none exist yet today); the slug is kebab-case, with a task
    ID appended if one exists. Don't renumber or rename existing TRDs.
+
+**Not in a repository** (for example, called over MCP or from a chat
+with no project checkout), the directory listing above can't run. The
+date part still works -- `current_date` or your clock gives it -- and
+the rest comes from, in order:
+
+1. **Siblings.** Look at other TRDs where this one is going: the wiki
+   space or parent page it will be published under, the folder it will
+   be saved in, or TRDs the user pasted or linked in this conversation.
+   Match their naming pattern; if they use the dated `NN` sequence, take
+   the highest `NN` for today plus 1.
+2. **No siblings visible:** use `01`, and put any ticket key from the
+   context at the end of the slug as above (`...-PROJ-123`) -- the date
+   plus the slug already keeps the name unique. Don't ask the user for a
+   daily sequence number; they can't know it either.
+
+Once a name is settled in a conversation, the next TRD that day
+continues from it (+1). If you have a memory feature, remember **where**
+this workspace's TRDs live and **how** they're named, never the last
+number -- re-derive it from the siblings each time. Never say a number
+was checked against siblings you couldn't actually see.
 
 ## Output structure
 

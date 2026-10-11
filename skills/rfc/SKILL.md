@@ -8,7 +8,7 @@ description: >-
   and opens it for review. Use when the user asks to write/draft an RFC,
   propose a system or architecture change, or open a design proposal for
   team review and discussion before work starts.
-version: 1.0.0
+version: 1.1.0
 metadata:
   category: software-development
   doc_type: rfc
@@ -65,12 +65,13 @@ Same convention-check as [`adr`](../adr) -- RFCs are sequential
 proposals, not per-day documents, and are conventionally a single flat
 file:
 
-1. An explicit user instruction wins.
-2. If `docs/RFCs/` already exists, match its existing numbering/filename
-   convention instead of the default below (e.g. it may already use
+1. An explicit user instruction wins -- including a number the user
+   gives.
+2. In a repository, if `docs/RFCs/` already exists, match its
+   existing numbering/filename convention instead of the default below (e.g. it may already use
    3-digit numbers, a different directory name, or a folder-per-RFC
    shape -- consistency with what's on disk beats this default).
-3. Otherwise:
+3. Otherwise, in a repository:
 
    ```
    docs/RFCs/NNNN-short-descriptive-title.md
@@ -80,6 +81,27 @@ file:
    existing files under `docs/RFCs/`, take the highest `NNNN`, and
    increment it (start at `0001` if none exist yet). This sequence is
    never reset by date. Don't renumber or rename existing RFCs.
+
+4. **Not in a repository** (for example, called over MCP or from a chat
+   with no project checkout), steps 2-3 can't run. Look at the
+   **siblings** instead -- other RFCs where this one is going: the wiki
+   space or parent page it will be published under, the folder it will
+   be saved in, or RFCs the user pasted or linked in this conversation.
+   Infer their pattern (prefix, digit width, separator), take the
+   highest number plus 1, and name this RFC the same way.
+5. **No siblings visible:** use a unique id already in the context --
+   the number of the ticket this RFC is for (`PROJ-123` gives `0123`),
+   or a number the user mentioned ("RFC number 12" gives `0012`). Pad
+   to 4 digits; never truncate a longer number.
+6. **Still nothing:** ask the user once -- for the number, or for where
+   earlier RFCs live so you can look at them.
+
+Don't ask every time. Once a number is settled in a conversation, the
+next RFC continues from it (+1) without asking. If you have a memory
+feature, remember **where** this workspace's RFCs live and **how**
+they're named -- that's stable -- but never the last number: other
+people add RFCs, so re-derive it from the siblings each time. Never
+say a number was checked against siblings you couldn't actually see.
 
 ## Output structure
 
