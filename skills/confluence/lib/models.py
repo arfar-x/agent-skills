@@ -48,9 +48,13 @@ class Page:
     ancestors: List[Ancestor] = field(default_factory=list)
     created: Optional[str] = None
     updated: Optional[str] = None
+    #: The page's Markdown, when it keeps a source block (see
+    #: lib/markdown_storage.py) -- exactly the text patch_page edits. A page
+    #: with one returns it instead of ``body_plain_text``.
+    markdown_source: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "id": self.id,
             "title": self.title,
             "space_key": self.space_key,
@@ -62,6 +66,9 @@ class Page:
             "created": self.created,
             "updated": self.updated,
         }
+        if self.markdown_source is not None:
+            result["markdown_source"] = self.markdown_source
+        return result
 
 
 @dataclass(frozen=True)

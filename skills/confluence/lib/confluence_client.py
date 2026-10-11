@@ -38,6 +38,7 @@ from urllib3.util.retry import Retry
 from . import attachment_files
 from .auth import ConfluenceConfig, load_config, load_credential
 from .credentials import Credential
+from .markdown_storage import extract_source
 from .models import Ancestor, Attachment, Comment, Page, Space
 from .utils import safe_get, storage_to_plain_text
 
@@ -369,17 +370,21 @@ class ConfluenceClient:
         ancestors_raw = raw.get("ancestors") or []
         ancestors = [Ancestor(id=a.get("id", ""), title=a.get("title", "") or "") for a in ancestors_raw]
         parent_id = ancestors[-1].id if ancestors else None
+        source = extract_source(body_storage) if body_storage else None
         return Page(
             id=raw.get("id", "") or "",
             title=raw.get("title", "") or "",
             space_key=space_key,
             version=int(version or 1),
             url=self._web_url(raw),
-            body_plain_text=storage_to_plain_text(body_storage) if body_storage else None,
+            body_plain_text=(
+                storage_to_plain_text(body_storage) if body_storage and source is None else None
+            ),
             parent_id=parent_id,
             ancestors=ancestors,
             created=safe_get(raw, "history", "createdDate"),
             updated=safe_get(raw, "version", "when"),
+            markdown_source=source[0] if source else None,
         )
 
     def _build_space(self, raw: Dict[str, Any]) -> Space:

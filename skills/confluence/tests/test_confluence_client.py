@@ -281,3 +281,25 @@ def test_my_pages_uses_current_user_cql(client, mock_session):
     client.my_pages()
     call = mock_session.request.call_args
     assert call.kwargs["params"]["cql"] == "creator = currentUser() order by lastmodified desc"
+
+
+def test_get_page_returns_markdown_source_instead_of_plain_text(client, mock_session):
+    from lib.markdown_storage import render_page
+
+    body = render_page("# Spec\n\n**Given** x", "Spec Kit source (spec.md)")
+    mock_session.request.return_value = make_response(
+        json_data={"id": "7", "title": "Spec", "version": {"number": 3}, "body": {"storage": {"value": body}}}
+    )
+    page = client.get_page("7")
+    assert page.markdown_source == "# Spec\n\n**Given** x"
+    assert page.body_plain_text is None
+    assert page.to_dict()["markdown_source"] == "# Spec\n\n**Given** x"
+
+
+def test_get_page_without_source_keeps_plain_text_and_no_markdown_key(client, mock_session):
+    mock_session.request.return_value = make_response(
+        json_data={"id": "8", "title": "Plain", "version": {"number": 1}, "body": {"storage": {"value": "<p>Hi</p>"}}}
+    )
+    page = client.get_page("8")
+    assert page.body_plain_text == "Hi"
+    assert "markdown_source" not in page.to_dict()

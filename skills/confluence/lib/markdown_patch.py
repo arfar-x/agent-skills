@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Sequence, Tuple
 
-from lib.text_patch import PatchError, replace_pairs
+from .text_patch import PatchError, replace_pairs
 
 __all__ = ["PatchError", "apply_patch", "replace_section"]
 
