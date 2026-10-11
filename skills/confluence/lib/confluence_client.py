@@ -814,6 +814,41 @@ class ConfluenceClient:
         result = self._request("POST", f"{self._api_path}/content/{page_id}/label", json_body=payload)
         return [entry.get("name") for entry in result.get("results", []) if entry.get("name")]
 
+    def add_labels(self, page_id: str, labels: List[str]) -> List[str]:
+        """Add several labels in one request. Returns the page's full label
+        list after adding."""
+        self._require_page_id(page_id)
+        names = [name.strip() for name in labels or [] if name and name.strip()]
+        if not names:
+            raise ConfluenceValidationError("At least one label is required.")
+        payload = [{"prefix": "global", "name": name} for name in names]
+        result = self._request("POST", f"{self._api_path}/content/{page_id}/label", json_body=payload)
+        return [entry.get("name") for entry in result.get("results", []) if entry.get("name")]
+
+    def get_page_storage(self, page_id: str) -> Dict[str, Any]:
+        """Fetch a page's raw storage body, version and labels, uncached.
+
+        For partial edits, which must start from the page as it is right
+        now -- never from a cached copy -- and write back against exactly
+        this version.
+        """
+        self._require_page_id(page_id)
+        raw = self._request(
+            "GET",
+            f"{self._api_path}/content/{page_id}",
+            params={"expand": "body.storage,version,space,metadata.labels"},
+        )
+        labels = safe_get(raw, "metadata", "labels", "results", default=[]) or []
+        return {
+            "id": raw.get("id", "") or str(page_id),
+            "title": raw.get("title", "") or "",
+            "space_key": safe_get(raw, "space", "key", default="") or "",
+            "version": int(safe_get(raw, "version", "number", default=1) or 1),
+            "body_storage": safe_get(raw, "body", "storage", "value", default="") or "",
+            "labels": [entry.get("name") for entry in labels if entry.get("name")],
+            "url": self._web_url(raw),
+        }
+
     def remove_label(self, page_id: str, label: str) -> None:
         """Remove a label from a page."""
         self._require_page_id(page_id)

@@ -35,6 +35,11 @@ credentials/
               # toolset that authenticates a `requests.Session` (Jira
               # today; Confluence and GitLab's REST/GraphQL APIs fit the
               # same shape).
+text/
+└── patch.py  # Exact, unambiguous text replacement for partial edits of
+              # a stored document (find must occur exactly once unless
+              # replace_all; pairs are all or nothing). Used by Jira
+              # (description edits) and Confluence (page Markdown).
 ```
 
 A toolset that needs one of these files symlinks it into its own `lib/`,
@@ -43,6 +48,7 @@ e.g.:
 ```bash
 ln -s ../../_shared/credentials/http.py skills/jira/lib/credentials.py
 ln -s ../../_shared/attachments/files.py skills/jira/lib/attachment_files.py
+ln -s ../../_shared/text/patch.py skills/jira/lib/text_patch.py
 ```
 
 **Windows note:** if a checkout has `git config core.symlinks false` (some

@@ -5,7 +5,7 @@ description: >-
   existing page. Use for "create a page in X called Y" or "add a new
   page under Z". This is a write operation gated behind explicit user
   confirmation.
-version: 1.0.1
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -37,18 +37,23 @@ required_environment_variables:
 ```bash
 uv run ../confluence/scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
   --body_storage "<p>Content here.</p>" [--parent_id 12345678] --confirm
+# or, from Markdown -- rendered by the tool, optionally kept on the page for later patching
+uv run ../confluence/scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
+  --body_markdown "# New Page..." [--source_title "Markdown source"] [--labels a,b] --confirm
 ```
 
 (`uv run` installs the dependencies on first use. Without `uv`, use
 `python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
-`--space_key`, `--title`, and `--body_storage` are required.
-`--body_storage` must be Confluence **storage-format XHTML** -- e.g.
-`<p>...</p>`, `<h2>...</h2>`, `<ul><li>...</li></ul>` -- never Markdown
-or plain text; Markdown syntax is not converted and renders literally
-as garbage text on the page. Convert whatever the user gave you
-(notes, a Markdown draft, plain prose) into real XHTML before calling
-this. `--parent_id` is optional -- pass it to create this as a child of
+`--space_key` and `--title` are required, plus exactly one of
+`--body_storage` or `--body_markdown`. `--body_storage` must be
+Confluence **storage-format XHTML** -- e.g. `<p>...</p>`, `<h2>...</h2>`
+-- never Markdown, which would render literally. To write Markdown, pass
+`--body_markdown` instead and the tool renders it. With `--source_title`
+the Markdown is also kept on the page as a collapsed source block, so a
+later change can go through `confluence-patch-page` instead of a full
+rewrite. `--labels` (comma-separated) are added right after creation, in
+the same confirmed call. `--parent_id` is optional -- pass it to create this as a child of
 an existing page instead of a space-root page.
 
 This refuses to execute unless run with `--confirm` (enforced in code,

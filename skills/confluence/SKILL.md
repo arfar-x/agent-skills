@@ -7,7 +7,7 @@ description: >-
   structured Confluence tools and reasoning over their JSON output,
   never by guessing or inventing page content. Use whenever the user
   asks about Confluence pages, spaces, comments, or documentation.
-version: 1.2.0
+version: 1.3.0
 metadata:
   category: software-development
   hermes:
@@ -74,7 +74,7 @@ uv run scripts/confluence_tool.py <tool> [--flags...]
 2. **Never invent page content.** Every title, body excerpt, comment, or
    label you state must come from the JSON a tool returned.
 3. **Write operations require confirmation.** `create_page`,
-   `update_page`, `delete_page`, `add_comment`, `add_label`,
+   `update_page`, `patch_page`, `delete_page`, `add_comment`, `add_label`,
    `remove_label`, `upload_attachment`, and `delete_attachment` refuse to
    execute unless run with `--confirm` (this
    is enforced in code, not just prompted). Unless
@@ -111,12 +111,20 @@ uv run scripts/confluence_tool.py <tool> [--flags...]
      new page because updating the right one failed to resolve).
      Report the failure per rule 5 and treat any alternative as its own
      new write action, confirmed the same way as any other write.
-4. **Page and comment content must be Confluence storage-format XHTML,
-   never Markdown or plain text.** `--body_storage` on `create_page`,
-   `update_page`, and `add_comment` is sent to Confluence verbatim --
-   e.g. `<p>Hello</p>`, `<h2>Section</h2>`, `<ul><li>item</li></ul>`.
-   Markdown syntax (`# Heading`, `**bold**`) is not converted and
-   renders literally as garbage text on the page -- write real XHTML.
+4. **`--body_storage` is Confluence storage-format XHTML; Markdown goes in
+   `--body_markdown`.** `--body_storage` on `create_page`, `update_page`
+   and `add_comment` is sent to Confluence verbatim -- e.g. `<p>Hello</p>`,
+   `<h2>Section</h2>` -- and Markdown in it renders as literal text. To
+   write Markdown, pass `--body_markdown` to `create_page`/`update_page`
+   instead: the tool renders it (headings, lists, tables, code blocks,
+   bold/italic/code/links) deterministically. Add `--source_title "..."` to
+   also keep the Markdown on the page as a collapsed source block -- which
+   is what lets `patch_page` change part of the page later.
+   **For a partial change to a page with a source block, use `patch_page`,
+   never a full rewrite:** `--find`/`--replace` pairs (each text must occur
+   exactly once), `--section "Heading"`/`--section_markdown` pairs (replace
+   one section's content), and `--add_labels`/`--remove_labels`, in one
+   call. Its confirmation shows a diff of exactly what changes.
 5. **If a result contains `"error"`,** relay the tool's actual error
    text (or a faithful paraphrase) so the user knows exactly what
    Confluence rejected -- don't retry silently, and don't invent a
@@ -209,14 +217,22 @@ uv run scripts/confluence_tool.py page_summary --page_id 12345678 [--sections pa
 uv run scripts/confluence_tool.py my_pages [--max_results 25]
 
 # Create a page (write, gated -- see rule 3). --body_storage is
-# Confluence storage-format XHTML, not Markdown (rule 4)
+# Confluence storage-format XHTML; or pass Markdown via --body_markdown (rule 4)
 uv run scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
   --body_storage "<p>Content here.</p>" [--parent_id 12345678] --confirm
+uv run scripts/confluence_tool.py create_page --space_key ENG --title "New Page" \
+  --body_markdown "# New Page\n\nContent." [--source_title "Markdown source"] [--labels draft,team-a] --confirm
 
 # Update a page's title and/or content (write, gated). Version is
 # resolved and incremented automatically -- never pass one yourself
 uv run scripts/confluence_tool.py update_page --page_id 12345678 \
-  [--title "New Title"] [--body_storage "<p>New content.</p>"] --confirm
+  [--title "New Title"] [--body_storage "<p>New content.</p>" | --body_markdown "..." [--source_title "..."]] --confirm
+
+# Change part of a page through its Markdown source block (write, gated).
+# Send only the change: exact text pairs, whole sections, labels -- one call
+uv run scripts/confluence_tool.py patch_page --page_id 12345678 \
+  [--find "cap 50" --replace "cap 100"] [--section "Limits" --section_markdown "- cap 100"] \
+  [--add_labels approved] [--remove_labels draft] --confirm
 
 # Permanently delete a page (write, gated, irreversible -- see rule 3)
 uv run scripts/confluence_tool.py delete_page --page_id 12345678 --confirm
@@ -268,11 +284,21 @@ as `<ul><li>...</li></ul>`, not Markdown -- rule 4), then run
 `create_page --space_key ENG --title "Q3 Retro" --body_storage "..." --confirm`.
 
 **"Add a section about rollback steps to the deploy runbook."**
-Resolve the page (`get_page_by_title` if you don't have the id), fetch
-its current content with `get_page` so you know what's already there,
-compose the *full* new body (this replaces the entire page, there's no
-append), confirm with the user, then run `update_page --page_id ...
---body_storage "..." --confirm`.
+Resolve the page (`get_page_by_title` if you don't have the id). If it
+has a Markdown source block, change only what's needed with
+`patch_page` (for example `--find` the heading after which the section
+goes, `--replace` it with itself plus the new section), confirm the diff
+with the user, and run it with `--confirm`. Otherwise fetch its current
+content with `get_page`, compose the *full* new body (`update_page`
+replaces the entire page), confirm with the user, then run
+`update_page --page_id ... --body_storage "..." --confirm`.
+
+**"Change the cap from 50 to 100 and mark the spec approved."**
+On a page with a source block, one call: `patch_page --page_id ...
+--find "cap 50" --replace "cap 100" --find "**Status**: Draft"
+--replace "**Status**: Approved" --add_labels approved --remove_labels
+draft`. Show the user the diff from the confirmation step, then re-run
+with `--confirm`.
 
 **"Delete the old draft page."**
 Confirm exactly which page (title, space, id) before deleting -- this

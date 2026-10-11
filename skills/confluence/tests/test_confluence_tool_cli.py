@@ -49,7 +49,9 @@ def test_create_page_forwards_confirm_flag():
     )
     with patch("scripts.confluence_tool.create_page.create_page") as mock_fn:
         confluence_tool.dispatch(args)
-    mock_fn.assert_called_once_with("ENG", "T", "<p>x</p>", parent_id=None, confirm=True)
+    mock_fn.assert_called_once_with(
+        "ENG", "T", "<p>x</p>", parent_id=None, confirm=True, body_markdown=None, source_title=None, labels=None
+    )
 
 
 def test_dispatch_unknown_tool_raises_assertion_error():
@@ -73,3 +75,43 @@ def test_main_prints_single_json_document_on_configuration_error(capsys):
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
     assert output == {"error": {"type": "configuration_error", "message": "boom"}}
+
+
+def test_patch_page_repeatable_flags_pair_up_and_labels_comma_split():
+    parser = confluence_tool.build_parser()
+    args = parser.parse_args(
+        [
+            "patch_page", "--page_id", "7",
+            "--find", "a", "--replace", "b",
+            "--find", "c", "--replace", "d",
+            "--section", "Limits", "--section_markdown", "- x",
+            "--add_labels", "spec-approved", "--remove_labels", "spec-draft,old",
+        ]
+    )
+    with patch("scripts.confluence_tool.patch_page.patch_page") as mock_fn:
+        confluence_tool.dispatch(args)
+    mock_fn.assert_called_once_with(
+        "7",
+        find=["a", "c"],
+        replace=["b", "d"],
+        replace_all=False,
+        section=["Limits"],
+        section_markdown=["- x"],
+        add_labels=["spec-approved"],
+        remove_labels=["spec-draft", "old"],
+        title=None,
+        confirm=False,
+    )
+
+
+def test_create_page_accepts_markdown_and_labels():
+    parser = confluence_tool.build_parser()
+    args = parser.parse_args(
+        ["create_page", "--space_key", "ENG", "--title", "T", "--body_markdown", "# T",
+         "--source_title", "Src", "--labels", "a,b"]
+    )
+    with patch("scripts.confluence_tool.create_page.create_page") as mock_fn:
+        confluence_tool.dispatch(args)
+    mock_fn.assert_called_once_with(
+        "ENG", "T", None, parent_id=None, confirm=False, body_markdown="# T", source_title="Src", labels=["a", "b"]
+    )

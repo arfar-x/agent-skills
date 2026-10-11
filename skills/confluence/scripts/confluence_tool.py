@@ -33,9 +33,14 @@ Usage:
     python scripts/confluence_tool.py page_summary --page_id 12345678 [--sections page,comments]
     python scripts/confluence_tool.py my_pages
     python scripts/confluence_tool.py create_page --space_key ENG --title "..." \\
-        --body_storage "<p>...</p>" [--parent_id 12345678] [--confirm]
+        (--body_storage "<p>...</p>" | --body_markdown "# ..." [--source_title "Markdown source"]) \\
+        [--labels a,b] [--parent_id 12345678] [--confirm]
     python scripts/confluence_tool.py update_page --page_id 12345678 \\
-        [--title "..."] [--body_storage "<p>...</p>"] [--confirm]
+        [--title "..."] [--body_storage "<p>...</p>" | --body_markdown "# ..." [--source_title "..."]] [--confirm]
+    python scripts/confluence_tool.py patch_page --page_id 12345678 \\
+        [--find "old" --replace "new" ...] [--replace_all] \\
+        [--section "Heading" --section_markdown "new content" ...] \\
+        [--add_labels a,b] [--remove_labels c] [--title "..."] [--confirm]
     python scripts/confluence_tool.py delete_page --page_id 12345678 [--confirm]
     python scripts/confluence_tool.py add_comment --page_id 12345678 --body_storage "<p>...</p>" [--confirm]
     python scripts/confluence_tool.py add_label --page_id 12345678 --label onboarding [--confirm]
@@ -77,6 +82,7 @@ from tools import (  # noqa: E402
     list_spaces,
     my_pages,
     page_summary,
+    patch_page,
     remove_label,
     search,
     update_page,
@@ -86,6 +92,24 @@ from tools import (  # noqa: E402
 
 def _add_page_id(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--page_id", required=True, help="Content id of the page, e.g. 12345678")
+
+
+def _add_markdown_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--body_markdown",
+        default=None,
+        help="Page content as Markdown, rendered to storage format by the tool (instead of --body_storage)",
+    )
+    parser.add_argument(
+        "--source_title",
+        default=None,
+        help="With --body_markdown: keep the Markdown on the page as a collapsed source block with this "
+        "title, so patch_page can edit the page later",
+    )
+
+
+def _split(value):
+    return [part.strip() for part in value.split(",") if part.strip()] if value else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -173,9 +197,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--title", required=True)
     p.add_argument(
         "--body_storage",
-        required=True,
-        help="Page content as Confluence storage-format XHTML, e.g. '<p>Hello</p>' -- not Markdown.",
+        default=None,
+        help="Page content as Confluence storage-format XHTML, e.g. '<p>Hello</p>'. "
+        "Pass this or --body_markdown.",
     )
+    _add_markdown_args(p)
+    p.add_argument("--labels", default=None, help="Comma-separated labels to add right after creating the page")
     p.add_argument("--parent_id", default=None, help="Optional parent page id, to create as a child page")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
@@ -188,6 +215,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="New content, Confluence storage-format XHTML (omit to leave unchanged). "
         "Replaces the entire body.",
     )
+    _add_markdown_args(p)
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser(
+        "patch_page",
+        help="Edit part of a page through its Markdown source block: exact text, whole sections, "
+        "labels (write, gated)",
+    )
+    _add_page_id(p)
+    p.add_argument(
+        "--find",
+        action="append",
+        default=None,
+        help="Exact text to find in the page's Markdown (repeatable; paired in order with --replace). "
+        "Must occur exactly once unless --replace_all.",
+    )
+    p.add_argument("--replace", action="append", default=None, help="Replacement for each --find, in order")
+    p.add_argument("--replace_all", action="store_true", help="Replace every occurrence of each --find")
+    p.add_argument(
+        "--section",
+        action="append",
+        default=None,
+        help="Heading whose content to replace, keeping the heading line (repeatable; paired in order "
+        "with --section_markdown)",
+    )
+    p.add_argument(
+        "--section_markdown",
+        action="append",
+        default=None,
+        help="New Markdown content for each --section, in order",
+    )
+    p.add_argument("--add_labels", default=None, help="Comma-separated labels to add")
+    p.add_argument("--remove_labels", default=None, help="Comma-separated labels to remove")
+    p.add_argument("--title", default=None, help="New title (omit to leave unchanged)")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser("delete_page", help="Permanently delete a page (write, gated, destructive)")
@@ -247,11 +308,36 @@ def dispatch(args: argparse.Namespace):
         return my_pages.my_pages(max_results=args.max_results)
     if args.tool == "create_page":
         return create_page.create_page(
-            args.space_key, args.title, args.body_storage, parent_id=args.parent_id, confirm=args.confirm
+            args.space_key,
+            args.title,
+            args.body_storage,
+            parent_id=args.parent_id,
+            confirm=args.confirm,
+            body_markdown=args.body_markdown,
+            source_title=args.source_title,
+            labels=_split(args.labels),
         )
     if args.tool == "update_page":
         return update_page.update_page(
-            args.page_id, title=args.title, body_storage=args.body_storage, confirm=args.confirm
+            args.page_id,
+            title=args.title,
+            body_storage=args.body_storage,
+            confirm=args.confirm,
+            body_markdown=args.body_markdown,
+            source_title=args.source_title,
+        )
+    if args.tool == "patch_page":
+        return patch_page.patch_page(
+            args.page_id,
+            find=args.find,
+            replace=args.replace,
+            replace_all=args.replace_all,
+            section=args.section,
+            section_markdown=args.section_markdown,
+            add_labels=_split(args.add_labels),
+            remove_labels=_split(args.remove_labels),
+            title=args.title,
+            confirm=args.confirm,
         )
     if args.tool == "delete_page":
         return delete_page.delete_page(args.page_id, confirm=args.confirm)

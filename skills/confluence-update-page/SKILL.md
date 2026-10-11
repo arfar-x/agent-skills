@@ -5,7 +5,7 @@ description: >-
   "update page X to say Y", "add a section about Z to the runbook", or
   "rename this page". This is a write operation gated behind explicit
   user confirmation.
-version: 1.0.1
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -36,19 +36,23 @@ required_environment_variables:
 
 ```bash
 uv run ../confluence/scripts/confluence_tool.py update_page --page_id 12345678 \
-  [--title "New Title"] [--body_storage "<p>New content.</p>"] --confirm
+  [--title "New Title"] [--body_storage "<p>New content.</p>" | --body_markdown "..." [--source_title "..."]] --confirm
 ```
 
 (`uv run` installs the dependencies on first use. Without `uv`, use
 `python3` in place of `uv run`, after a one-time `pip install -r ../confluence/requirements.txt`.)
 
-`--page_id` is required; give at least one of `--title`/`--body_storage`.
-**`--body_storage` replaces the entire page body -- there is no partial
-or append update.** If the user asked to add a section rather than
-replace the page, first fetch the page's current content (the parent
+`--page_id` is required; give at least one of `--title`/`--body_storage`/
+`--body_markdown`. **This replaces the entire page body.** For a partial
+change to a page that keeps a Markdown source block, use
+`confluence-patch-page` instead -- it sends only the change. Otherwise, to
+add a section, first fetch the page's current content (the parent
 `confluence` skill's `get_page`), compose the *full* new body with your
-addition included, then pass that whole thing here. Content must be
-Confluence storage-format XHTML, never Markdown.
+addition included, then pass that whole thing here.
+`--body_storage` is Confluence storage-format XHTML (never Markdown);
+`--body_markdown` is Markdown the tool renders, and with
+`--source_title` it also keeps the Markdown on the page so it can be
+patched later.
 
 The page's version number is resolved and incremented automatically --
 never pass one yourself. If the page was edited since you last read it,

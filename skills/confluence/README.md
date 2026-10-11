@@ -31,7 +31,7 @@ remember across turns and sessions.
   why `CONFLUENCE_DEPLOYMENT_TYPE` is a **required** setting here, where
   Jira's equivalent is optional.
 - **Write operations are gated.** `create_page()`, `update_page()`,
-  `delete_page()`, `add_comment()`, `add_label()`, `remove_label()`,
+  `patch_page()`, `delete_page()`, `add_comment()`, `add_label()`, `remove_label()`,
   `upload_attachment()`, and `delete_attachment()` refuse to execute unless called with `confirm=true` (CLI: `--confirm`),
   or `CONFLUENCE_AUTO_CONFIRM_WRITES=true` is set. This backs up
   `SKILL.md`'s confirmation rule with an enforced safety net in code.
@@ -41,6 +41,13 @@ remember across turns and sessions.
   increments it automatically, so callers never pass one in the normal
   case (there is no Jira analog to this; a plain field edit in Jira has
   no version concept).
+- **Markdown in, storage format out -- and back.** `lib/markdown_storage.py`
+  renders a small, predictable Markdown subset to storage XHTML
+  deterministically, and can keep the Markdown on the page as a collapsed
+  source block (an `expand` macro holding a `code` macro). `patch_page()`
+  reads that block back, applies exact edits with `lib/markdown_patch.py`
+  (text pairs, whole sections; all or nothing), renders the page again and
+  writes it, so a small change never means resending the whole page.
 - **Body content is Confluence storage-format XHTML, not Markdown.**
   Both Cloud and Server/Data Center accept and return the same `storage`
   representation, so one write path and one plain-text converter
@@ -96,6 +103,7 @@ skills/confluence/
 │   ├── my_pages.py
 │   ├── create_page.py
 │   ├── update_page.py
+│   ├── patch_page.py
 │   ├── delete_page.py
 │   ├── add_comment.py
 │   ├── add_label.py
@@ -104,6 +112,9 @@ skills/confluence/
 │   ├── confluence_client.py  # The single Confluence REST client
 │   ├── auth.py                # Env-based configuration + validation
 │   ├── models.py               # Typed, JSON-serializable data models
+│   ├── markdown_storage.py     # Markdown -> storage XHTML, and the page's Markdown source block
+│   ├── markdown_patch.py       # Exact text/section edits of that Markdown
+│   ├── text_patch.py           # -> ../../_shared/text/patch.py (exact text replacement)
 │   └── utils.py                 # Storage-format-XHTML-to-plain-text conversion
 └── tests/                    # Unit tests for the client and every tool
 ```
@@ -170,8 +181,9 @@ Windows caveat on symlinked checkouts.
 | `get_labels(page_id)` | Read | The labels currently on a page |
 | `page_summary(page_id, sections)` | Read | Page + comments + attachments + labels + children, as one document (or a subset via `sections`) |
 | `my_pages(max_results)` | Read | Pages the current user authored, most recently modified first |
-| `create_page(space_key, title, body_storage, parent_id, confirm)` | Write (gated) | Create a new page; `body_storage` is Confluence storage-format XHTML |
-| `update_page(page_id, title, body_storage, confirm)` | Write (gated) | Update a page's title and/or content; version resolved and incremented automatically |
+| `create_page(space_key, title, body_storage, parent_id, confirm, body_markdown, source_title, labels)` | Write (gated) | Create a new page from storage-format XHTML or from Markdown (rendered by `lib/markdown_storage.py`, optionally kept on the page as a source block); labels added in the same call |
+| `update_page(page_id, title, body_storage, confirm, body_markdown, source_title)` | Write (gated) | Replace a page's title and/or whole content; version resolved and incremented automatically |
+| `patch_page(page_id, find, replace, replace_all, section, section_markdown, add_labels, remove_labels, title, confirm)` | Write (gated) | Change part of a page through its Markdown source block -- exact text pairs and whole sections (`lib/markdown_patch.py`), plus labels -- in one call; the confirmation shows a diff, and the write is pinned to the version read |
 | `delete_page(page_id, confirm)` | Write (gated) | Permanently delete a page |
 | `add_comment(page_id, body_storage, confirm)` | Write (gated) | Add a comment to a page |
 | `add_label(page_id, label, confirm)` | Write (gated) | Add a label to a page |
@@ -207,6 +219,7 @@ for every row below: `confluence`.**
 | `confluence-list-spaces` | `list_spaces` | Read |
 | `confluence-create-page` | `create_page` | Write (gated) |
 | `confluence-update-page` | `update_page` | Write (gated) |
+| `confluence-patch-page` | `patch_page` | Write (gated) |
 | `confluence-delete-page` | `delete_page` | Write (gated, destructive) |
 | `confluence-add-comment` | `add_comment` | Write (gated) |
 
