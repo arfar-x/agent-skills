@@ -8,7 +8,7 @@ description: >-
   and reasoning over their JSON output, never by guessing or inventing
   ticket data. Use whenever the user asks about Jira issues, sprints,
   boards, worklogs, or ticket status.
-version: 2.0.0
+version: 1.5.1
 metadata:
   category: software-development
   hermes:

@@ -7,7 +7,7 @@ description: >-
   structured Confluence tools and reasoning over their JSON output,
   never by guessing or inventing page content. Use whenever the user
   asks about Confluence pages, spaces, comments, or documentation.
-version: 2.0.0
+version: 1.3.2
 metadata:
   category: software-development
   hermes:
