@@ -7,7 +7,7 @@ description: >-
   PAY-101". This is a write operation gated behind explicit user
   confirmation. For moving an issue between statuses, use jira-status
   instead.
-version: 1.1.1
+version: 1.2.0
 metadata:
   category: software-development
   hermes:
@@ -48,11 +48,31 @@ Works the same way on a subtask -- just pass the subtask's own
 `python3` in place of `uv run`, after a one-time `pip install -r ../jira/requirements.txt`.)
 
 `--issue_key` is required; at least one of `--summary`, `--description`,
-`--labels` (comma-separated, replaces the existing list), `--assignee_account_id`,
+`--description_find`/`--description_replace`, `--labels` (comma-separated,
+replaces the existing list), `--add_labels`/`--remove_labels`,
+`--assignee_account_id`,
 `--priority`, `--components` (comma-separated, replaces the existing list),
 `--custom_fields` (a JSON object of `customfield_NNNNN -> value` -- resolve
 ids/shapes via `uv run ../jira/scripts/jira_tool.py list_fields` first,
 never guess either) must be given. Omitted fields are left unchanged.
+
+## Partial edits
+
+Send only the change instead of the whole text:
+
+```bash
+uv run ../jira/scripts/jira_tool.py edit_issue --issue_key PAYKAN-123 \
+  --description_find "cap 50" --description_replace "cap 100" \
+  --description_find "(revision 1)" --description_replace "(revision 2)" \
+  --add_labels spec-x --remove_labels old --confirm
+```
+
+- `--description_find`/`--description_replace` come in pairs, applied in
+  order to the issue's current description. Each find must occur
+  **exactly once**, or the call fails and nothing changes. Not combinable
+  with `--description`.
+- `--add_labels`/`--remove_labels` change individual labels and keep the
+  rest. Not combinable with `--labels`, which replaces the whole list.
 
 ## Assignee
 

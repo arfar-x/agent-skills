@@ -305,6 +305,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--description", default=None, help="New description (omit to leave unchanged)")
     p.add_argument("--labels", default=None, help="Comma-separated labels, replaces the existing list")
     p.add_argument(
+        "--description_find",
+        action="append",
+        default=None,
+        help="Exact text to find in the current description (repeatable; paired in order with "
+        "--description_replace) -- a partial edit instead of resending the whole description",
+    )
+    p.add_argument(
+        "--description_replace", action="append", default=None, help="Replacement for each --description_find"
+    )
+    p.add_argument("--add_labels", default=None, help="Comma-separated labels to add, keeping the existing ones")
+    p.add_argument("--remove_labels", default=None, help="Comma-separated labels to remove, keeping the rest")
+    p.add_argument(
         "--assignee_account_id",
         default=None,
         help="A user's account_id -- resolve via search_users first, don't guess",
@@ -446,6 +458,10 @@ def dispatch(args: argparse.Namespace):
             components=components,
             custom_fields=custom_fields,
             confirm=args.confirm,
+            description_find=args.description_find,
+            description_replace=args.description_replace,
+            add_labels=args.add_labels.split(",") if args.add_labels else None,
+            remove_labels=args.remove_labels.split(",") if args.remove_labels else None,
         )
     raise AssertionError(f"Unhandled tool: {args.tool}")  # unreachable: argparse enforces choices
 

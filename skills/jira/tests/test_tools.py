@@ -230,9 +230,10 @@ def test_search_only_still_fetches_status_and_links_for_blocked_detection():
 
 def test_search_rejects_unknown_field_name():
     mock_client = MagicMock()
+    mock_client.list_fields.return_value = []
     with patch("tools.search.get_client", return_value=mock_client):
         result = search.search("project = PAY", only=["bogus_field"])
-    assert result["error"]["type"] == "JiraValidationError"
+    assert result["error"]["type"] == "invalid_input"
     mock_client.search.assert_not_called()
 
 
@@ -393,6 +394,8 @@ def test_edit_issue_accepts_only_custom_fields():
         priority=None,
         components=None,
         custom_fields=custom_fields,
+        add_labels=None,
+        remove_labels=None,
     )
 
 
@@ -796,3 +799,74 @@ def test_kanban_status_errors_when_no_board_found():
     with patch("tools.kanban_status.get_client", return_value=mock_client):
         result = kanban_status.kanban_status()
     assert result["error"]["type"] == "JiraNotFoundError"
+
+
+def test_edit_issue_description_find_replace_patches_the_current_text():
+    from dataclasses import replace as dc_replace
+
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    mock_client.get_issue.return_value = dc_replace(_issue(key="PAYKAN-1"), description="cap 50\nrevision 1")
+    mock_client.edit_issue.return_value = _issue(key="PAYKAN-1")
+    with patch("tools.edit_issue.get_client", return_value=mock_client):
+        result = edit_issue.edit_issue(
+            "PAYKAN-1",
+            description_find=["cap 50", "revision 1"],
+            description_replace=["cap 100", "revision 2"],
+            add_labels=["spec-x"],
+        )
+    kwargs = mock_client.edit_issue.call_args.kwargs
+    assert kwargs["description"] == "cap 100\nrevision 2"
+    assert kwargs["add_labels"] == ["spec-x"]
+    assert [e["count"] for e in result["description_edits"]] == [1, 1]
+
+
+def test_edit_issue_description_patch_fails_on_missing_text_without_writing():
+    from dataclasses import replace as dc_replace
+
+    mock_client = MagicMock()
+    mock_client.config = _fake_config(auto_confirm=True)
+    mock_client.get_issue.return_value = dc_replace(_issue(key="PAYKAN-1"), description="text")
+    with patch("tools.edit_issue.get_client", return_value=mock_client):
+        result = edit_issue.edit_issue("PAYKAN-1", description_find=["nope"], description_replace=["x"])
+    assert result["error"]["type"] == "invalid_input"
+    mock_client.edit_issue.assert_not_called()
+
+
+def test_edit_issue_rejects_mixing_whole_and_partial_edits():
+    both = edit_issue.edit_issue("PAYKAN-1", description="x", description_find=["a"], description_replace=["b"])
+    assert both["error"]["type"] == "invalid_input"
+    labels = edit_issue.edit_issue("PAYKAN-1", labels=["a"], remove_labels=["b"])
+    assert labels["error"]["type"] == "invalid_input"
+
+
+def test_search_resolves_field_display_names_from_only_and_fields():
+    mock_client = MagicMock()
+    mock_client.list_fields.return_value = [
+        {"id": "customfield_10110", "name": "Epic Link", "custom": True},
+        {"id": "customfield_10056", "name": "Figma Link", "custom": True},
+    ]
+    mock_client.search.return_value = []
+    with patch("tools.search.get_client", return_value=mock_client):
+        result = search.search("labels = x", only=["summary", "epic link"], fields=["Figma Link", "customfield_1"])
+    requested = mock_client.search.call_args.kwargs["fields"]
+    assert {"summary", "customfield_10110", "customfield_10056", "customfield_1"} <= set(requested)
+    assert result["resolved_fields"] == {"epic link": "customfield_10110", "Figma Link": "customfield_10056"}
+
+
+def test_search_unknown_field_name_is_a_clear_error():
+    mock_client = MagicMock()
+    mock_client.list_fields.return_value = [{"id": "customfield_10110", "name": "Epic Link", "custom": True}]
+    with patch("tools.search.get_client", return_value=mock_client):
+        result = search.search("x", only=["Epic"])
+    assert result["error"]["type"] == "invalid_input"
+    assert "Epic Link" in result["error"]["message"]
+    mock_client.search.assert_not_called()
+
+
+def test_search_with_only_known_names_never_lists_fields():
+    mock_client = MagicMock()
+    mock_client.search.return_value = []
+    with patch("tools.search.get_client", return_value=mock_client):
+        search.search("x", only=["summary"])
+    mock_client.list_fields.assert_not_called()

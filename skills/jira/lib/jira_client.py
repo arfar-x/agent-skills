@@ -1390,8 +1390,14 @@ class JiraClient:
         priority: Optional[str] = None,
         components: Optional[List[str]] = None,
         custom_fields: Optional[Dict[str, Any]] = None,
+        add_labels: Optional[List[str]] = None,
+        remove_labels: Optional[List[str]] = None,
     ) -> Issue:
         """Update fields on an existing issue (or subtask). Only given fields change.
+
+        ``add_labels``/``remove_labels`` change individual labels and keep the
+        rest (Jira's ``update`` verb); ``labels`` replaces the whole list. The
+        two forms can't be combined.
 
         Args:
             issue_key: Target issue, e.g. ``PAY-123``.
@@ -1428,13 +1434,23 @@ class JiraClient:
             fields["components"] = [{"name": c} for c in components]
         if custom_fields:
             self._merge_custom_fields(fields, custom_fields)
-        if not fields:
+        label_ops = [{"add": name} for name in add_labels or []] + [
+            {"remove": name} for name in remove_labels or []
+        ]
+        if label_ops and labels is not None:
+            raise JiraValidationError("Pass either labels (replace all) or add_labels/remove_labels, not both.")
+        if not fields and not label_ops:
             raise JiraValidationError(
-                "At least one of summary/description/labels/assignee_account_id/"
-                "priority/components/custom_fields must be provided."
+                "At least one of summary/description/labels/add_labels/remove_labels/"
+                "assignee_account_id/priority/components/custom_fields must be provided."
             )
 
-        self._request("PUT", f"{self.API_V2}/issue/{issue_key}", json_body={"fields": fields})
+        body: Dict[str, Any] = {}
+        if fields:
+            body["fields"] = fields
+        if label_ops:
+            body["update"] = {"labels": label_ops}
+        self._request("PUT", f"{self.API_V2}/issue/{issue_key}", json_body=body)
         return self.get_issue(issue_key)
 
     # ------------------------------------------------------------------

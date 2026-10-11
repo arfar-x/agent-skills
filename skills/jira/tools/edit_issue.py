@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from lib.jira_client import get_client
+from lib.text_patch import PatchError, replace_pairs
 from tools._common import ToolInputError, require_str, run_tool
 
 
@@ -24,6 +25,10 @@ def edit_issue(
     components: Optional[List[str]] = None,
     custom_fields: Optional[Dict[str, Any]] = None,
     confirm: bool = False,
+    description_find: Optional[List[str]] = None,
+    description_replace: Optional[List[str]] = None,
+    add_labels: Optional[List[str]] = None,
+    remove_labels: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Update one or more fields on an existing issue (or subtask).
 
@@ -40,6 +45,14 @@ def edit_issue(
         custom_fields: Any field to set/replace by its real
             ``customfield_NNNNN`` id -- resolve the id and its expected
             value shape via ``list_fields`` first, never guess either.
+        description_find: Exact texts to find in the current description,
+            paired in order with ``description_replace`` -- a partial edit,
+            instead of resending the whole description. Each must occur
+            exactly once. Can't be combined with ``description``.
+        description_replace: Replacement for each ``description_find``.
+        add_labels: Labels to add, keeping the existing ones.
+        remove_labels: Labels to remove, keeping the rest. Can't be
+            combined with ``labels``.
         confirm: Must be ``True`` (or JIRA_AUTO_CONFIRM_WRITES=true) for
             the edit to actually execute. Hermes should set this only
             after the user has explicitly confirmed the action.
@@ -53,9 +66,17 @@ def edit_issue(
     def _run() -> Dict[str, Any]:
         key = require_str(issue_key, "issue_key")
 
+        finds, replaces = list(description_find or []), list(description_replace or [])
+        if (finds or replaces) and description is not None:
+            raise ToolInputError("Pass either 'description' or 'description_find'/'description_replace', not both.")
+        if (add_labels or remove_labels) and labels is not None:
+            raise ToolInputError("Pass either 'labels' or 'add_labels'/'remove_labels', not both.")
         if (
             summary is None
             and description is None
+            and not finds
+            and not add_labels
+            and not remove_labels
             and labels is None
             and assignee_account_id is None
             and priority is None
@@ -69,6 +90,15 @@ def edit_issue(
             )
 
         client = get_client()
+
+        new_description = description
+        description_edits: List[dict] = []
+        if finds or replaces:
+            current = client.get_issue(key, fields=["description"]).description or ""
+            try:
+                new_description, description_edits = replace_pairs(current, finds, replaces)
+            except PatchError as exc:
+                raise ToolInputError(f"description: {exc}") from exc
 
         if not confirm and not client.config.auto_confirm_writes:
             return {
@@ -84,19 +114,27 @@ def edit_issue(
                     "priority": priority,
                     "components": components,
                     "custom_fields": custom_fields,
+                    "description_edits": description_edits,
+                    "add_labels": add_labels,
+                    "remove_labels": remove_labels,
                 },
             }
 
         updated = client.edit_issue(
             key,
             summary=summary,
-            description=description,
+            description=new_description,
             labels=labels,
             assignee_account_id=assignee_account_id,
             priority=priority,
             components=components,
             custom_fields=custom_fields,
+            add_labels=add_labels,
+            remove_labels=remove_labels,
         )
-        return {"confirmed": True, "issue": updated.to_dict()}
+        result: Dict[str, Any] = {"confirmed": True, "issue": updated.to_dict()}
+        if description_edits:
+            result["description_edits"] = description_edits
+        return result
 
     return run_tool("edit_issue", _run)

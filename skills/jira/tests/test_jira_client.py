@@ -869,3 +869,18 @@ def test_kanban_status_uses_given_board_id(client, mock_session):
     assert result["board_id"] == 4
     assert result["columns"] == ["To Do", "Done"]
     assert result["issue_counts_by_column"]["To Do"] == 1
+
+
+def test_edit_issue_label_ops_use_the_update_verb(client, mock_session):
+    mock_session.request.side_effect = [
+        make_response(status_code=204),
+        make_response(json_data={"key": "PAYKAN-1", "fields": {"summary": "S", "status": {"name": "To Do"}}}),
+    ]
+    client.edit_issue("PAYKAN-1", add_labels=["spec-x"], remove_labels=["old"])
+    body = mock_session.request.call_args_list[0].kwargs["json"]
+    assert body == {"update": {"labels": [{"add": "spec-x"}, {"remove": "old"}]}}
+
+
+def test_edit_issue_rejects_replacing_and_patching_labels_together(client):
+    with pytest.raises(JiraValidationError, match="not both"):
+        client.edit_issue("PAYKAN-1", labels=["a"], add_labels=["b"])

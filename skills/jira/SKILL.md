@@ -8,7 +8,7 @@ description: >-
   and reasoning over their JSON output, never by guessing or inventing
   ticket data. Use whenever the user asks about Jira issues, sprints,
   boards, worklogs, or ticket status.
-version: 1.4.0
+version: 1.5.0
 metadata:
   category: software-development
   hermes:
@@ -187,7 +187,11 @@ uv run scripts/jira_tool.py <tool> [--flags...]
     lever for keeping bulk results token-cheap. `key`, `url`, and
     `custom_fields` are always present regardless of `--only`, and
     `blocked` is always computed for `search` even if `status`/`links`
-    weren't explicitly requested.
+    weren't explicitly requested. For any other field, `search` accepts
+    its Jira display name (e.g. `--only "summary,Epic Link"` or
+    `--fields "Figma Link"`), resolves it to the field id itself, and
+    returns it under `custom_fields` (the mapping is in
+    `resolved_fields`) -- no `list_fields` round trip needed first.
 11. **Never guess a JQL field name or literal value -- there are two
     different vocabularies, don't mix them up.** `--only`/`--sections`
     use this skill's own output names (`due_date`, `issue_type`);
@@ -359,6 +363,8 @@ uv run scripts/jira_tool.py blockers --issue_key PAY-123
 # see rule 11 (e.g. --jql uses "due", --only uses "due_date")
 uv run scripts/jira_tool.py search --jql "assignee = currentUser() AND updated <= -14d" \
   [--fields customfield_10056] [--only summary,status,priority]
+# Other fields by display name -- resolved to their ids by the tool
+uv run scripts/jira_tool.py search --jql "labels = spec-x" --only "summary,Epic Link"
 
 # Enumerate every field (incl. custom fields) to discover a custom field's id by name
 uv run scripts/jira_tool.py list_fields
