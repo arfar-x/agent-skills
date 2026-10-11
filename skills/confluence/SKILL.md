@@ -7,7 +7,7 @@ description: >-
   structured Confluence tools and reasoning over their JSON output,
   never by guessing or inventing page content. Use whenever the user
   asks about Confluence pages, spaces, comments, or documentation.
-version: 1.3.0
+version: 1.3.1
 metadata:
   category: software-development
   hermes:
@@ -125,6 +125,9 @@ uv run scripts/confluence_tool.py <tool> [--flags...]
    exactly once), `--section "Heading"`/`--section_markdown` pairs (replace
    one section's content), and `--add_labels`/`--remove_labels`, in one
    call. Its confirmation shows a diff of exactly what changes.
+   `get_page` returns such a page's Markdown as `markdown_source` (instead
+   of `body_plain_text`) -- copy every `--find` text from it verbatim,
+   never from a rendered or plain-text view, which drops Markdown markers.
 5. **If a result contains `"error"`,** relay the tool's actual error
    text (or a faithful paraphrase) so the user knows exactly what
    Confluence rejected -- don't retry silently, and don't invent a

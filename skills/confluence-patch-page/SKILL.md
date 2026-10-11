@@ -54,7 +54,9 @@ never the whole page:
 
 - `--find`/`--replace` come in pairs, applied in order. Each `--find` must
   occur **exactly once** in the Markdown (include enough surrounding text
-  to make it unique), unless `--replace_all`.
+  to make it unique), unless `--replace_all`. Copy it verbatim from the
+  page's `markdown_source` (returned by `confluence-get-page`) -- Markdown
+  markers such as `**` are part of the text.
 - `--section`/`--section_markdown` come in pairs: the content under that
   heading (to the next heading of the same or higher level) is replaced;
   the heading line stays. Pass the heading's text, with or without `#`s.

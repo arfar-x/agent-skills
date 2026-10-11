@@ -48,6 +48,9 @@ remember across turns and sessions.
   reads that block back, applies exact edits with `lib/markdown_patch.py`
   (text pairs, whole sections; all or nothing), renders the page again and
   writes it, so a small change never means resending the whole page.
+  `get_page()` returns that Markdown as `markdown_source` (instead of
+  `body_plain_text`), so a caller copies its find text from exactly what
+  `patch_page()` matches against.
 - **Body content is Confluence storage-format XHTML, not Markdown.**
   Both Cloud and Server/Data Center accept and return the same `storage`
   representation, so one write path and one plain-text converter
