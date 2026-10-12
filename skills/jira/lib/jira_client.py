@@ -843,6 +843,7 @@ class JiraClient:
         as_base64: bool = False,
     ) -> Dict[str, Any]:
         """Read one attachment's content into memory, without saving it anywhere."""
+        max_bytes = attachment_files.clamp_read_limit(max_bytes)
         meta = self._request("GET", f"{self.API_V2}/attachment/{attachment_id}")
         info = self._build_attachment(meta, attachment_id)
         attachment_files.check_size_within_limit(info["size_bytes"], max_bytes)

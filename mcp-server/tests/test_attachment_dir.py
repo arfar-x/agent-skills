@@ -104,3 +104,16 @@ def test_reading_returns_the_callers_own_file_and_nothing_else(tmp_path, monkeyp
         assert "limit" in read("note.txt", max_bytes=2)["error"]["message"]
     with patch("lib.credentials._get_http_headers", return_value=_headers()):
         assert "error" in read("note.txt")
+
+
+def test_reading_cannot_be_asked_for_more_than_the_hard_ceiling(tmp_path, monkeypatch):
+    from lib.attachment_listing import build_read_attachment_file
+
+    user = tmp_path / "alice"
+    user.mkdir()
+    (user / "big.txt").write_bytes(b"x" * (8 * 1024 * 1024 + 1))
+    monkeypatch.setenv("AGENT_SKILLS_ATTACHMENT_DIR", str(tmp_path))
+    credentials.configure(trust_request_credentials=True, attachment_dir_per_user=True)
+    read = build_read_attachment_file(REPO_ROOT)
+    with patch("lib.credentials._get_http_headers", return_value=_headers("alice")):
+        assert "limit" in read("big.txt", max_bytes=10**12)["error"]["message"]

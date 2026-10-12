@@ -43,6 +43,20 @@ DEFAULT_MAX_BYTES = 50 * 1024 * 1024
 #: up in a model's context, so it is far smaller than a download.
 DEFAULT_READ_MAX_BYTES = 1024 * 1024
 
+#: No caller-supplied ``max_bytes`` raises an inline read above this: the
+#: bytes are held in memory and end up in a model's context.
+READ_HARD_MAX_BYTES = 8 * 1024 * 1024
+
+
+def clamp_read_limit(max_bytes: Any) -> int:
+    """The limit an inline read uses: the caller's ``max_bytes`` when it is a
+    positive integer, capped at :data:`READ_HARD_MAX_BYTES`; otherwise the
+    default."""
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        return DEFAULT_READ_MAX_BYTES
+    return min(max_bytes, READ_HARD_MAX_BYTES)
+
+
 _TEXT_MEDIA_TYPE = re.compile(
     r"^(text/|application/(json|xml|yaml|x-yaml|javascript|ecmascript|csv|sql|x-sh|x-httpd-php|graphql|toml|x-ndjson)\b|"
     r"application/[\w.+-]+\+(json|xml|yaml)\b)",
@@ -270,6 +284,8 @@ def resolve_local_file(
     """
     if not isinstance(file_path, str) or not file_path.strip():
         raise AttachmentFileError("'file_path' is required and must be a non-empty string.")
+    if "\x00" in file_path:
+        raise AttachmentFileError("'file_path' must not contain NUL characters.")
     path = root / Path(file_path.strip()).expanduser()
     refuse_secret_looking(_inside(root, Path(os.path.normpath(path))))
     try:

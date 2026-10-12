@@ -565,6 +565,7 @@ class ConfluenceClient:
         as_base64: bool = False,
     ) -> Dict[str, Any]:
         """Read one attachment's content into memory, without saving it anywhere."""
+        max_bytes = attachment_files.clamp_read_limit(max_bytes)
         self._require_page_id(attachment_id)
         raw = self._request(
             "GET", f"{self._api_path}/content/{attachment_id}", params={"expand": "metadata,extensions"}

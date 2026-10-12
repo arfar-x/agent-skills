@@ -94,6 +94,19 @@ def _redact_error(payload: dict[str, Any], secrets: list[str]) -> dict[str, Any]
     return {"error": error}
 
 
+#: Parameters whose value may be too large for a command-line argument
+#: (the OS caps one at 128 KiB): above ``_STDIN_THRESHOLD`` characters the
+#: value goes to the CLI on stdin instead, and the flag carries ``-``.
+_STDIN_PARAMS = ("content", "content_base64")
+_STDIN_THRESHOLD = 32 * 1024
+
+
+def _redact_argv(argv: list[str]) -> list[str]:
+    """argv for an error message: long arguments (uploaded content, page
+    bodies) are shortened, so a failure never echoes them back."""
+    return [a if len(a) <= 200 else f"{a[:80]}...[{len(a)} chars]" for a in argv]
+
+
 def _build_argv(python: str, script: str, subcommand: str, spec: SubcommandSpec, kwargs: dict[str, Any]) -> list[str]:
     argv = [python, script, subcommand]
     by_name = {p.name: p for p in spec.params}
@@ -137,6 +150,14 @@ def execute_subcommand(
     if missing:
         return {"error": {"type": "missing_environment_variables", "missing": missing}}
 
+    stdin_data = None
+    kwargs = dict(kwargs)
+    accepted = {p.name for p in spec.params}
+    for name in _STDIN_PARAMS:
+        value = kwargs.get(name)
+        if name in accepted and isinstance(value, str) and len(value) > _STDIN_THRESHOLD and stdin_data is None:
+            stdin_data, kwargs[name] = value, "-"
+
     argv = _build_argv("python3", str(manifest.script_path), spec.name, spec, kwargs)
 
     try:
@@ -144,6 +165,9 @@ def execute_subcommand(
             argv,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            input=stdin_data,
+            stdin=None if stdin_data is not None else subprocess.DEVNULL,
             timeout=timeout_seconds,
             shell=False,
             cwd=str(manifest.script_path.parent.parent),
@@ -155,13 +179,17 @@ def execute_subcommand(
                 "error": {
                     "type": "timeout",
                     "message": f"{manifest.toolset} {spec.name} exceeded {timeout_seconds}s.",
-                    "argv": argv,
+                    "argv": _redact_argv(argv),
                 }
             },
             secrets,
         )
+    except ValueError:
+        return {"error": {"type": "invalid_input", "message": "Arguments must not contain NUL characters."}}
     except OSError as exc:
-        return _redact_error({"error": {"type": "spawn_failed", "message": str(exc), "argv": argv}}, secrets)
+        return _redact_error(
+            {"error": {"type": "spawn_failed", "message": str(exc), "argv": _redact_argv(argv)}}, secrets
+        )
 
     if proc.returncode != 0:
         return _redact_error(
@@ -171,7 +199,7 @@ def execute_subcommand(
                     "exit_code": proc.returncode,
                     "stdout": proc.stdout,
                     "stderr": proc.stderr,
-                    "argv": argv,
+                    "argv": _redact_argv(argv),
                 }
             },
             secrets,
@@ -187,7 +215,7 @@ def execute_subcommand(
                     "message": "Subcommand exited 0 but stdout was not a single JSON document.",
                     "stdout": proc.stdout,
                     "stderr": proc.stderr,
-                    "argv": argv,
+                    "argv": _redact_argv(argv),
                 }
             },
             secrets,

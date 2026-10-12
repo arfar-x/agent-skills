@@ -211,3 +211,11 @@ def test_read_attachment_enforces_the_limit_the_host_and_the_id(mock_session):
     mock_session.request.return_value = make_response(json_data={**LOG, "content": "https://evil.example/x"})
     assert "outside" in read_attachment.read_attachment("10001")["error"]["message"]
     assert read_attachment.read_attachment("../x")["error"]["type"] == "invalid_input"
+
+
+def test_read_attachment_cannot_be_asked_for_more_than_the_hard_ceiling(mock_session):
+    from lib.attachment_files import READ_HARD_MAX_BYTES
+
+    big = {**LOG, "size": READ_HARD_MAX_BYTES + 1}
+    mock_session.request.return_value = make_response(json_data=big)
+    assert "limit" in read_attachment.read_attachment("10001", max_bytes=10**12)["error"]["message"]

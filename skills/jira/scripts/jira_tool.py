@@ -93,6 +93,12 @@ from tools import (  # noqa: E402
 )
 
 
+
+def _stdin_if_dash(value):
+    """``--content -`` / ``--content_base64 -`` read the value from stdin, for
+    content too large for a command-line argument (the MCP server uses it)."""
+    return sys.stdin.buffer.read().decode("utf-8") if value == "-" else value
+
 def _add_common(parser: argparse.ArgumentParser, *, issue_key: bool = False) -> None:
     if issue_key:
         parser.add_argument("--issue_key", required=True, help="Issue key, e.g. PAY-123")
@@ -417,6 +423,7 @@ def dispatch(args: argparse.Namespace):
     if args.tool == "read_attachment":
         return read_attachment.read_attachment(args.attachment_id, args.max_bytes, args.as_base64)
     if args.tool == "upload_attachment":
+        args.content, args.content_base64 = _stdin_if_dash(args.content), _stdin_if_dash(args.content_base64)
         return upload_attachment.upload_attachment(
             args.issue_key, args.file_path, args.filename, args.max_bytes, confirm=args.confirm,
             content=args.content, content_base64=args.content_base64,

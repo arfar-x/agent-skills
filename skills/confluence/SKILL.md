@@ -104,6 +104,10 @@ uv run scripts/confluence_tool.py <tool> [--flags...]
      writing it to disk; `pending_action` then shows `"source": "content"`.
      `get_attachment --out_dir` is confined the same way; without it the
      file goes to a scratch directory.
+   - `--content -` / `--content_base64 -` read the value from stdin, for content
+     too large for a command-line argument (the MCP server does this itself
+     above 32 KB). Inline reads (`read_attachment`, `read_attachment_file`) are
+     capped at 8 MB however large a `max_bytes` is asked for.
    - To look at what an attachment says, use `read_attachment`: it returns
      the content inline and saves nothing. `get_attachment` is only for
      when a file on disk is actually needed.

@@ -231,3 +231,59 @@ def test_subprocess_env_excludes_other_toolsets_vars(mock_run, tmp_path, monkeyp
     actual_env = mock_run.call_args.kwargs["env"]
     assert "TELEGRAM_API_ID" not in actual_env
     assert actual_env["JIRA_BASE_URL"] == "https://jira.example.com"
+
+
+# --- Large content, NUL bytes, and what errors echo ---------------------------
+
+UPLOAD_SPEC = SubcommandSpec(
+    name="upload_attachment",
+    help="Attach",
+    params=(
+        ParamSpec("page_id", "--page_id", "str", True, None, None, False, "..."),
+        ParamSpec("content", "--content", "str", False, None, None, False, "..."),
+        ParamSpec("content_base64", "--content_base64", "str", False, None, None, False, "..."),
+        ParamSpec("filename", "--filename", "str", False, None, None, False, "..."),
+    ),
+)
+
+
+def _ok_run():
+    return MagicMock(returncode=0, stdout="{}", stderr="")
+
+
+@patch("lib.execute.subprocess.run")
+def test_content_too_big_for_an_argument_goes_to_stdin(mock_run, tmp_path):
+    mock_run.return_value = _ok_run()
+    manifest = _manifest(tmp_path / "skills" / "confluence" / "scripts" / "confluence_tool.py")
+    big = "é" * 200_000
+    execute_subcommand(manifest, UPLOAD_SPEC, {"page_id": "1", "content": big, "filename": "a.txt"}, env={})
+    argv = mock_run.call_args.args[0]
+    assert argv[argv.index("--content") + 1] == "-"
+    assert mock_run.call_args.kwargs["input"] == big
+    assert mock_run.call_args.kwargs["encoding"] == "utf-8"
+    assert max(len(a) for a in argv) < 1000
+
+
+@patch("lib.execute.subprocess.run")
+def test_small_content_stays_an_argument_and_stdin_is_closed(mock_run, tmp_path):
+    mock_run.return_value = _ok_run()
+    manifest = _manifest(tmp_path / "skills" / "confluence" / "scripts" / "confluence_tool.py")
+    execute_subcommand(manifest, UPLOAD_SPEC, {"page_id": "1", "content": "hi", "filename": "a.txt"}, env={})
+    argv = mock_run.call_args.args[0]
+    assert argv[argv.index("--content") + 1] == "hi"
+    assert mock_run.call_args.kwargs["input"] is None
+    assert mock_run.call_args.kwargs["stdin"] == subprocess.DEVNULL
+
+
+@patch("lib.execute.subprocess.run", side_effect=ValueError("embedded null byte"))
+def test_a_nul_byte_in_an_argument_is_a_clean_refusal(mock_run, tmp_path):
+    manifest = _manifest(tmp_path / "skills" / "confluence" / "scripts" / "confluence_tool.py")
+    result = execute_subcommand(manifest, UPLOAD_SPEC, {"page_id": "1", "content": "a\x00b"}, env={})
+    assert result["error"]["type"] == "invalid_input" and "NUL" in result["error"]["message"]
+
+
+@patch("lib.execute.subprocess.run", side_effect=OSError(7, "Argument list too long"))
+def test_errors_never_echo_long_arguments(mock_run, tmp_path):
+    manifest = _manifest(tmp_path / "skills" / "confluence" / "scripts" / "confluence_tool.py")
+    result = execute_subcommand(manifest, UPLOAD_SPEC, {"page_id": "1", "content": "x" * 5000, "filename": "a"}, env={})
+    assert len(str(result)) < 1500 and "x" * 300 not in str(result)

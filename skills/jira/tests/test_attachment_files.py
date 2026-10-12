@@ -218,3 +218,17 @@ def test_describe_upload_takes_exactly_one_source(root):
         describe_upload("a.txt", content="x", filename="b.txt")
     with pytest.raises(AttachmentFileError, match="Nothing to upload"):
         describe_upload()
+
+
+def test_inline_read_limit_is_clamped_to_a_hard_ceiling():
+    from lib.attachment_files import DEFAULT_READ_MAX_BYTES, READ_HARD_MAX_BYTES, clamp_read_limit
+
+    assert clamp_read_limit(10**12) == READ_HARD_MAX_BYTES
+    assert clamp_read_limit(500) == 500
+    for bad in (0, -5, None, "9", True, 1.5):
+        assert clamp_read_limit(bad) == DEFAULT_READ_MAX_BYTES
+
+
+def test_nul_in_a_path_is_a_clean_refusal(root):
+    with pytest.raises(AttachmentFileError, match="NUL"):
+        describe_upload_file("a\x00b")
