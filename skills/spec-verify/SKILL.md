@@ -11,7 +11,7 @@ description: >-
   human must make. Use when the user asks to verify, validate, or audit
   specs against the code, check spec accuracy or drift, or confirm
   generated specs before trusting them as the source of truth.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -180,3 +180,17 @@ The human-decision list is the part a person must actually read: it
 contains only what the code cannot answer. Offer to apply the proposed
 spec corrections; apply them only after approval, then rerun tiers 0-1
 on the changed capabilities.
+
+### Presenting the report
+
+The block above defines the report's content and section order, not its
+display format; never hand the user raw markdown or a fenced text block.
+
+- **If the runtime can publish a rendered page (an artifact), use it**:
+  render the report as a readable page -- verdicts and tables as real
+  tables, status shown as clear visual markers, and the section that
+  needs a human decision first or visually prominent -- and give the
+  user its link.
+- **Otherwise, use the runtime's native formatting** for a readable
+  inline report (real tables and headings, short labelled lists), with
+  no literal markdown syntax, pipes, or code fences visible to the user.

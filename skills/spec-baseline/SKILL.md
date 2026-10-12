@@ -11,7 +11,7 @@ description: >-
   document an existing project from its code, lock current behavior into
   specs, or adopt spec-driven development or Spec Kit on a legacy
   codebase. Not for specifying a new feature.
-version: 1.0.0
+version: 1.0.1
 metadata:
   category: software-development
   hermes:
@@ -377,6 +377,20 @@ TESTS     <n> acceptance scenarios -> <test location per project convention>
           -- write characterization tests? (yes/no)
 ```
 
+**Presenting the report.**
+
+The block above defines this report's content and section order, not its
+display format; never hand the user raw markdown or a fenced text block.
+
+- **If the runtime can publish a rendered page (an artifact), use it**:
+  render the report as a readable page -- verdicts and tables as real
+  tables, status shown as clear visual markers, and the section that
+  needs a human decision first or visually prominent -- and give the
+  user its link.
+- **Otherwise, use the runtime's native formatting** for a readable
+  inline report (real tables and headings, short labelled lists), with
+  no literal markdown syntax, pipes, or code fences visible to the user.
+
 Ask the user to approve specs by number and confirm story priorities,
 decide each constitution principle and each defect, supply rationale for
 any decision worth recording, answer the open questions, and say
@@ -516,3 +530,7 @@ TESTS         <n> written, <p> passing, <x> expected failures (KD-###), <u> FRs 
 DEFECTS/GAPS  <n> KD, <m> GAP entries across <k> specs
 OPEN          <remaining NEEDS CLARIFICATION markers, by spec>
 ```
+
+Present this final report the same way as the Phase 4 report: as a
+rendered page if the runtime offers one, otherwise natively formatted,
+never as raw markdown.
