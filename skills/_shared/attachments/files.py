@@ -258,25 +258,18 @@ def check_size_within_limit(size: Optional[int], max_bytes: int) -> None:
         )
 
 
-def describe_upload_file(
-    file_path: Any, filename: Optional[str] = None, max_bytes: int = DEFAULT_MAX_BYTES
+def resolve_local_file(
+    root: Path, file_path: Any, max_bytes: int = DEFAULT_MAX_BYTES
 ) -> Dict[str, Any]:
-    """Validate a local file for upload and describe it.
+    """Validate ``file_path`` against ``root`` and describe it.
 
-    The file must lie inside the attachment directory (a relative path is
-    taken from it) and must not be hidden or look like a secret. Returns
-    ``{"path": <fully resolved path>, "filename": <name it will have
-    remotely>, "size_bytes": N, "media_type": ...}``. ``filename``
-    overrides the remote name (still reduced to a bare file name).
+    ``root`` must already be resolved. The file must lie inside it (a
+    relative path is taken from it) and must not be hidden or look like a
+    secret. Returns ``{"path": <fully resolved path>, "filename",
+    "size_bytes", "media_type"}``.
     """
     if not isinstance(file_path, str) or not file_path.strip():
         raise AttachmentFileError("'file_path' is required and must be a non-empty string.")
-    root = attachment_dir()
-    if root is None:
-        raise AttachmentFileError(
-            f"Uploading a local file is disabled: set {ATTACHMENT_DIR_ENV} to the directory files may be "
-            "uploaded from, or pass the file's content instead."
-        )
     path = root / Path(file_path.strip()).expanduser()
     refuse_secret_looking(_inside(root, Path(os.path.normpath(path))))
     try:
@@ -295,9 +288,33 @@ def describe_upload_file(
         raise AttachmentFileError(
             f"{resolved} is {size} bytes, over the {max_bytes}-byte limit (raise it with max_bytes / --max_bytes)."
         )
-    name = safe_filename(filename if filename else resolved.name)
+    name = safe_filename(resolved.name)
     media_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
     return {"path": str(resolved), "filename": name, "size_bytes": size, "media_type": media_type}
+
+
+def describe_upload_file(
+    file_path: Any, filename: Optional[str] = None, max_bytes: int = DEFAULT_MAX_BYTES
+) -> Dict[str, Any]:
+    """Validate a local file for upload and describe it.
+
+    Only files inside the attachment directory are accepted (see
+    :func:`resolve_local_file`); with the directory unset, none. Returns
+    ``{"path", "filename": <name it will have remotely>, "size_bytes",
+    "media_type"}``. ``filename`` overrides the remote name (still reduced
+    to a bare file name).
+    """
+    root = attachment_dir()
+    if root is None:
+        raise AttachmentFileError(
+            f"Uploading a local file is disabled: set {ATTACHMENT_DIR_ENV} to the directory files may be "
+            "uploaded from, or pass the file's content instead."
+        )
+    info = resolve_local_file(root, file_path, max_bytes)
+    if filename:
+        info["filename"] = safe_filename(filename)
+        info["media_type"] = mimetypes.guess_type(info["filename"])[0] or "application/octet-stream"
+    return info
 
 
 def describe_upload_content(

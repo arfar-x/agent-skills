@@ -256,7 +256,9 @@ directory. Never point it at a directory holding credentials or config.
 
 When the directory is set, the server also offers `list_attachment_files`,
 which lists what the caller may pass as `file_path` (hidden and
-secret-looking files left out). For a multi-user client whose upload store
+secret-looking files left out), and `read_attachment_file`, which returns one
+of those files' content inline (text as text, binary base64-encoded on
+request, capped at 1 MB) so an agent can read an upload before attaching it. For a multi-user client whose upload store
 keeps one folder per user (LibreChat's does), add
 `--attachment-dir-per-user` (or `MCP_ATTACHMENT_DIR_PER_USER=1`): each
 request then gets only `<AGENT_SKILLS_ATTACHMENT_DIR>/<user>`, the user

@@ -35,7 +35,7 @@ from lib.adapter_note import adapter_note  # noqa: E402
 from lib.auth import build_auth_provider  # noqa: E402
 from lib.doc_gen import build_doc_gen_tool  # noqa: E402
 from lib.introspect import IntrospectionError  # noqa: E402
-from lib.attachment_listing import build_list_attachment_files  # noqa: E402
+from lib.attachment_listing import build_list_attachment_files, build_read_attachment_file  # noqa: E402
 from lib.mcp_tools import register_toolset_tools  # noqa: E402
 from lib.registry import (  # noqa: E402
     discover_skills,
@@ -99,6 +99,7 @@ def build_app(*, include_internal: bool) -> FastMCP:
 
     if os.environ.get(credentials.ATTACHMENT_DIR_VAR, "").strip():
         app.tool()(build_list_attachment_files(REPO_ROOT))
+        app.tool()(build_read_attachment_file(REPO_ROOT))
 
     doc_gen_tool = build_doc_gen_tool(manifests)
     if doc_gen_tool is not None:

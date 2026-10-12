@@ -78,3 +78,29 @@ def test_listing_shows_only_the_callers_own_allowed_files(tmp_path, monkeypatch)
     assert sorted(f["path"] for f in out["files"]) == ["a1__report.pdf", "sub/notes.txt"]
     with patch("lib.credentials._get_http_headers", return_value=_headers()):
         assert list_files()["files"] == []
+
+
+def test_reading_returns_the_callers_own_file_and_nothing_else(tmp_path, monkeypatch):
+    from lib.attachment_listing import build_read_attachment_file
+
+    alice, bob = tmp_path / "alice", tmp_path / "bob"
+    alice.mkdir()
+    bob.mkdir()
+    (alice / "note.txt").write_text("سلام")
+    (alice / "blob.bin").write_bytes(b"\xff\xd8\x00")
+    (alice / ".env").write_text("X=1")
+    (bob / "b.txt").write_text("bob's")
+    (alice / "link.txt").symlink_to(bob / "b.txt")
+    monkeypatch.setenv("AGENT_SKILLS_ATTACHMENT_DIR", str(tmp_path))
+    credentials.configure(trust_request_credentials=True, attachment_dir_per_user=True)
+    read = build_read_attachment_file(REPO_ROOT)
+    with patch("lib.credentials._get_http_headers", return_value=_headers("alice")):
+        ok = read("note.txt")
+        assert ok["encoding"] == "text" and ok["content"] == "سلام"
+        assert read("blob.bin")["encoding"] == "binary"
+        assert read("blob.bin", as_base64=True)["content"] == "/9gA"
+        for path in ("../bob/b.txt", "link.txt", ".env", "/etc/passwd", "missing.txt"):
+            assert "error" in read(path), path
+        assert "limit" in read("note.txt", max_bytes=2)["error"]["message"]
+    with patch("lib.credentials._get_http_headers", return_value=_headers()):
+        assert "error" in read("note.txt")
