@@ -1,20 +1,22 @@
 ---
 name: project-onboard
 description: >-
-  Onboards the user onto a project they no longer fully understand --
-  typically one built mostly by AI ("vibe coded") -- in the least reading
-  possible, so they can again make architecture, flow, and maintenance
-  decisions. Investigates the code itself instead of trusting READMEs,
-  then delivers a one-screen brief (what it is, how it works, the one
-  flow that matters traced end to end, where the risk is, which decisions
-  are theirs) and deepens one branch at a time on request. Read-only by
-  default; saves an ONBOARDING.md only when asked. Use when the user says
-  they lost track of their project, asks "how does this project work",
-  "onboard me", "explain this codebase", "give me the big picture", or
-  needs to regain control of a codebase fast. Not for fixing bugs or
-  writing features, and not for documenting a project for other people
-  (use agents-md or spec-baseline).
-version: 1.0.0
+  Gets a user back in control of a project they no longer fully
+  understand -- typically one built mostly by AI ("vibe coded") -- with
+  the least reading possible. Investigates the code itself, then
+  delivers a pocket brief of about 25 lines: what it is, a map with
+  traffic-light danger zones, the story of one request told as it
+  travels through the code, where the project's claims and its code
+  disagree, and the decisions that are the user's. Continues in short
+  cards chosen by typing one digit, so the user never has to write or
+  read much. Read-only by default; saves an ONBOARDING.md only when
+  asked. Use when the user says they lost track of their project, asks
+  "how does this project work", "onboard me", "explain this codebase",
+  "give me the big picture", "what did the AI build", or needs to regain
+  control of a codebase fast. Not for fixing bugs or writing features,
+  and not for documenting a project for other people (use agents-md or
+  spec-baseline).
+version: 1.1.0
 metadata:
   category: software-development
   hermes:
@@ -29,178 +31,181 @@ metadata:
 variables. The agent's own file-reading and shell tools do the
 investigation.
 
-Goal: **maximum regained control per minute of the user's attention.**
-The user is busy and does not want to read. They need to end up able to
-answer four things: *what does this do, how does a request flow
-through it, what is fragile, and which decisions are mine.* Everything
-else is optional and only on request.
+The user is smart, busy, and done reading. What they lost is not
+information -- it is **a correct picture in their head**, so they can't
+judge architecture, trace a flow, or decide what to do next. Your job
+is to rebuild that picture in the fewest seconds of attention, not to
+document the project.
 
-Reply in the language the user writes in. Keep code identifiers, paths,
-and commands as they are.
+Reply in the language the user writes in. Keep identifiers, paths, and
+commands as they are.
 
-## Ground rules
+## The design rules (these drive everything below)
 
-- **Read-only.** Investigate, never modify. Running the project's own
-  test or lint command is fine; starting servers, installing
-  dependencies, or touching a database or network is not, unless the
-  user says so. Writing a file is only ever the optional save in step 6.
-- **Evidence over narrative.** The code is the truth; READMEs, comments,
-  and prior chat claims in a vibe-coded repo are often stale or
-  aspirational. Every claim in the brief is either *confirmed* (you read
-  the code, cite `path:line`) or marked *inferred* (a guess from names or
-  structure). Never present an inferred claim as confirmed, never invent
-  a component, and say plainly when you couldn't tell.
-- **Less is the product.** The brief is one screen. A long onboarding is
-  a failed onboarding -- the user will not read it. Cut anything that
-  doesn't change what they'd decide or do.
-- **Say what you skipped.** One line naming what you did *not* look at,
-  so the user knows the brief's blind spots.
+1. **Answer first, evidence second.** Every card opens with its
+   conclusion. The user can stop reading after the first line of any
+   card and still be right.
+2. **Cards, not documents.** Each reply is one card that fits one
+   screen. Never send two cards unless the user typed `all`.
+3. **Pictures and symbols beat paragraphs.** Boxes and arrows, traffic
+   lights, one-line bullets. A sentence longer than a line is a sign to
+   cut. No tables of more than three columns, no walls of bold.
+4. **The user steers with one digit.** Every card ends with a numbered
+   menu of at most four choices, tailored to what you just found. The
+   user replies `2` -- they never have to compose a question.
+5. **Teach the gap, not the topic.** The user's existing picture is
+   mostly right and wrong in a few places. Spend words only where their
+   picture and the code differ; skip what they obviously know.
+6. **Evidence tags, always.** Every claim is `✓` (you read the code;
+   cite `path:line`) or `?` (inferred from names/structure). Never show
+   a `?` as a `✓`, never invent a component, and say "couldn't tell"
+   when you couldn't.
+7. **Read-only.** Investigate, never modify. Running the project's own
+   tests or linter is fine when it's safe; starting servers, installing
+   dependencies, or touching a database or network is not unless the
+   user says so. The only file this skill ever writes is the optional
+   save at the end, and only with approval.
 
-## 1. Orient in minutes, not hours
+## Investigate (cheap, bounded, before saying anything)
 
-Spend a bounded effort (a handful of cheap commands, not a full read):
+Don't read the project; **interrogate it**. A handful of fast probes:
 
-1. **Shape** -- top-level layout, manifests (`package.json`,
-   `pyproject.toml`, `go.mod`, ...), entry points, framework, how it's
-   run and deployed (scripts, Dockerfile, CI config).
-2. **Size and weight** -- which files and directories hold most of the
-   code. Big, central files are where the logic lives.
-3. **History as a map** -- `git log` shows what changed most
-   (churn = where the real action and the instability are), what was
-   added recently, and whether work stalled. Files changed most often
-   are the project's real center, whatever the README says.
-4. **Surfaces** -- where the outside touches it: routes/endpoints,
-   CLI commands, scheduled jobs, message consumers, UI entry screens.
-   Surfaces are the table of contents of behavior.
-5. **State** -- where data lives: schema/migrations/models, files,
-   caches, external services, env vars it needs.
+- **Shape** -- layout, manifests, entry points, how it's run/deployed.
+- **Weight** -- which files hold most of the code.
+- **Heat** -- `git log`: the most-changed files are where the real
+  action and the real instability are, whatever the README says. Also
+  read the commit story: the project's history in three acts ("started
+  as X, pivoted to Y, last month bolted on Z") explains why it looks the
+  way it does, in one sentence.
+- **Surfaces** -- routes, CLI commands, jobs, consumers, UI entry points:
+  the table of contents of what it actually does.
+- **State** -- schemas/models, files, caches, external services, env
+  vars it needs.
+- **Own vocabulary** -- vibe-coded projects invent names (`Hub`,
+  `Orchestrator`, `Pipeline`) that mean nothing outside the project.
+  Collect the 4-8 terms that appear everywhere.
+- **Claims** -- what README/docs/PRD/comments say it does.
 
-On a large repo, fan the independent areas out to parallel read-only
-sub-agents and take back only conclusions with citations, not file
-dumps. Don't read whole files when a signature list or grep answers it.
+On a large repo, fan independent areas out to parallel read-only
+sub-agents and take back only cited conclusions, not file dumps. Prefer
+signature lists and grep over reading whole files. For a monorepo,
+orient on the layout and ask which part matters before going deep.
 
-If the project is a monorepo, orient on the layout, then ask which part
-the user cares about before going deep.
+Then pick **the golden request**: the one flow that is the project's
+reason to exist. If it isn't obvious, take the most-changed surface and
+say so.
 
-## 2. Find the golden path
+## The pocket brief (the first reply)
 
-Pick **the one flow that is the project's reason to exist** (the main
-user action, the main job, the main request) and trace it end to end:
-surface → handler → core logic → storage / external call → response.
-One real flow, followed through the real code, teaches the architecture
-better than any component list, because it shows how the parts are
-actually connected rather than how they're drawn.
+About 25 lines, in this order. Drop any part with nothing to say.
 
-If it isn't obvious which flow matters most, pick the most-churned
-surface and say so, or ask one question.
+**1. One line.** What it is, for whom, in plain words.
 
-## 3. Name the shape
+**2. The map.** 4-8 boxes with arrows in plain text, labelled by
+*responsibility*, not folder name, each box prefixed with a light:
 
-Reduce the architecture to something the user can hold in their head:
+- 🟢 safe -- small, tested or isolated, change freely
+- 🟡 careful -- central or coupled; check before changing
+- 🔴 danger -- fragile, untested, or load-bearing and confusing
 
-- **One sentence**: what it is and who/what uses it.
-- **A tiny map**: 4-8 boxes with arrows, drawn as plain text, labelled
-  by *responsibility*, not by folder name. If you need more boxes, group
-  them.
-- **The one rule that holds it together**: the single organizing idea
-  (layers, plugins, event bus, "everything goes through X") -- or, if
-  there isn't one, say that. A project with no organizing idea is
-  itself a finding.
+Add one line: the single idea that holds it together ("everything goes
+through X") -- or "no organizing idea" if that's the truth, which is
+itself a finding.
 
-## 4. Find where the bodies are buried
+**3. One request, told as a journey.** The golden request narrated as
+the thing travelling through the code, 4-7 short arrows, each with a
+`path:line`:
 
-AI-built projects fail in recognizable ways. Check for them specifically
-and report only what you actually found, ranked by how much it would
-hurt:
+```
+user clicks Pay → routes/checkout.ts:41 → calls priceCart() in lib/cart.ts:88
+→ writes order to db.orders → fires email job queue/mail.ts:12 → returns 200
+```
 
-- **Duplicated logic** -- the same rule implemented in two or three
-  places that will drift apart.
-- **No single source of truth** -- state, config, or a business rule
-  living in several places.
-- **Dead and half-finished code** -- unused modules, abandoned
-  approaches left beside the one in use, stubs, `TODO`s that are
-  actually load-bearing.
-- **Hidden coupling** -- modules that reach into each other's
-  internals; a change here that silently breaks there.
-- **God files** -- one huge file doing everything, usually the most
-  churned one.
-- **Untested core** -- is the golden path covered at all? Do the tests
-  pass? (Run the project's existing test command if there is one and it
-  is safe to; otherwise say you didn't.)
-- **Inconsistent patterns** -- three ways of doing the same thing
-  (data access, error handling, naming) from different sessions.
-- **Security and data hygiene** -- secrets in code, unvalidated input at
-  a surface, missing auth on an endpoint, destructive operations with no
-  guard. Flag; don't dig.
-- **Unpinned or abandoned dependencies** that the core relies on.
+A real journey through real code teaches the architecture better than
+any component list, because it shows how the parts are *actually*
+wired rather than how they're drawn.
 
-Report **at most five**, each as: *what* (with `path:line`) → *why it
-bites* → *how bad* (blocks you / will bite later / cosmetic). Silence on
-a category is information: don't pad.
+**4. Says vs does.** Up to three places where the project's claims
+(README, docs, comments, names) and its code disagree -- "README says
+tests run in CI; no CI config exists". These are the drift vibe coding
+creates, and each one is a wrong belief the user is currently acting
+on. Omit if none found.
 
-## 5. Surface the decisions that are the user's
+**5. Your calls.** The decisions that are the user's and that were
+made silently for them (stack, data store, auth, hosting, a pattern the
+whole codebase now leans on), as `chose X · alternative Y · switching
+costs ~Z`. Add the forks the code is about to force. Keep these apart
+from implementation detail they can safely delegate.
 
-The user lost control because decisions were made *for* them, silently.
-Give those decisions back. List the **choices already baked in** that
-they may not know they made, and the **forks coming up**:
+**6. Blind spots.** One line: what you did not look at.
 
-- baked in: stack, data store, auth approach, hosting, a pattern the
-  whole codebase now depends on -- stated as "this project chose X;
-  alternative Y exists; changing it would cost roughly Z".
-- open forks: places where the code currently takes a shortcut that
-  will force a decision as the project grows.
+**7. Menu.** Up to four numbered next steps, generated from what you
+found, such as:
 
-For each, one line plus a recommendation when you have an evidence-based
-one. These are the **decisions only the user can make**; keep them
-separate from implementation detail they can safely delegate.
+```
+1 💥 What breaks if I change <hottest thing>?
+2 🧪 Test me -- 3 questions to check I really get it
+3 🧹 Fix-first list (what to clean before building more)
+4 🔎 Zoom into <the 🔴 box>
+```
 
-## 6. Deliver, then deepen
+## The cards (one per menu choice)
 
-### The brief (default response)
+Each is one screen, answer-first, same symbols and evidence tags.
 
-One screen, in this order. Skip any part that has nothing to say.
+- **💥 Blast radius.** For a thing the user names or the hottest file:
+  *if you change this, these break, in this order.* Direct dependents
+  first, then the surprising indirect ones. This is the fastest way to
+  learn an architecture -- by what moves when you push on it -- and it's
+  what actually prevents the next bad decision.
+- **🧪 Test me.** Belief-diff, not a quiz. Ask the user to answer three
+  tiny multiple-choice or one-word questions about the project
+  ("where does the price get computed? 1 cart.ts 2 checkout.ts 3
+  both"), **then stop and wait**. Reveal answers afterwards and teach
+  only the misses -- the gaps are where their picture is wrong. Asking
+  and answering in the same message defeats it. Only run it when the
+  user asks for it or is about to make a change.
+- **🧹 Fix-first list.** At most five hazards, ranked by how much each
+  would hurt, each as `what (path:line) → why it bites → ⛔ blocks you
+  / ⏳ will bite later / 💤 cosmetic`. Look specifically for what AI
+  sessions leave behind: duplicated logic that will drift, state or a
+  rule living in two places, dead or half-finished code beside the live
+  version, modules reaching into each other's internals, one huge
+  most-changed file, an untested core path, three styles for one job,
+  secrets in code or an unguarded endpoint or destructive operation,
+  and core dependencies that are unpinned or abandoned. Silence on a
+  category is information -- don't pad.
+- **🔎 Zoom.** One component, in the same shape as the pocket brief
+  scaled down: one line, its inputs → outputs, its own journey, its
+  traps. Building on what's already shown, never restarting.
+- **🧰 Cheat sheet.** The operating card: how to run it, how to test it,
+  where a new feature of the common kinds goes, the three things never
+  to do (each with the reason), and the words from the project's own
+  vocabulary.
+- **🧭 Decision.** For one of "Your calls": the options, what each
+  costs, a recommendation when evidence supports one, and what to
+  check before committing.
+- **all.** If the user types `all`, send every card in sequence. Not
+  before.
 
-1. **In one breath** -- what it is and does.
-2. **Map** -- the tiny diagram from step 3 and its organizing rule.
-3. **The main flow** -- the golden path as 4-7 arrows, each with a
-   `path:line`.
-4. **Watch out** -- the top risks from step 4, at most five.
-5. **Your calls** -- the decisions from step 5.
-6. **Not examined** -- the one line of blind spots.
-7. **Next** -- offer 3 concrete branches to go deeper on (a named flow,
-   a risky area, a decision), tailored to what you found, and ask which.
+If the runtime can render a visual page, offer the map and journey as a
+single clickable diagram page; otherwise the text version is the
+deliverable. Never make the user wait for a visual to get the answer.
 
-### Check understanding (optional, one question)
+## Optional save
 
-Reading is not the same as understanding. When the user will soon have
-to make a change or decision, close with a single prediction question
-about the code ("if you changed X, what else would break?"), and wait
-for their answer before revealing yours. Skip it if they only wanted the
-overview -- don't turn onboarding into homework.
-
-### Deepen on request
-
-Expand only the branch the user picks, to the same standard (evidence,
-cited, short), building on what's already established instead of
-restarting. Natural branches: one more flow, one component's internals,
-a risk in detail, a decision with options and trade-offs, "what would it
-take to add/change X", "what should I clean up first".
-
-### Optional save
-
-If the user wants to keep it, offer to write the brief to
-`ONBOARDING.md` at the project root (or another path they choose),
-**after** they approve its contents. Mark *inferred* claims there too, and
+If the user wants to keep it, offer to write the brief and any cards
+they used to `ONBOARDING.md` at the project root (or a path they
+choose), **after** they approve the contents. Keep the `✓`/`?` tags, and
 add the date and commit it describes so a reader knows how stale it is.
 Never commit it unless asked.
 
 ## What this skill is not
 
-- Not a bug-fixer or feature-builder: if the user then asks to change
-  something, onboarding is done -- proceed as a normal task.
+- Not a bug-fixer or feature-builder: once the user asks to change
+  something, onboarding is done -- continue as a normal task.
 - Not documentation for a team: a brief tuned to one person's missing
   context is the wrong artifact. Point to `agents-md` for agent-facing
   docs or `spec-baseline` for a spec-grade baseline.
-- Not a code review: hazards here are about *understanding and
-  control*, not an exhaustive defect list. Point to `code-review` for
-  that.
+- Not a code review: hazards here serve *understanding and control*,
+  not an exhaustive defect list. Point to `code-review` for that.
