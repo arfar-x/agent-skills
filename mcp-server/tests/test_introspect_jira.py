@@ -21,7 +21,7 @@ def test_jira_tool_known_subcommands_are_all_extracted():
         "my_work", "issue_summary", "blockers", "search", "transition", "worklog",
         "sprint", "kanban_status", "worklog_report", "list_fields", "now",
         "worklog_edit", "worklog_delete", "triage", "project_context",
-        "search_users", "create_issue", "edit_issue",
+        "search_users", "create_issue", "edit_issue", "add_comment",
         "get_attachments", "get_attachment", "read_attachment", "upload_attachment", "delete_attachment",
     }
 
