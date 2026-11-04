@@ -870,3 +870,45 @@ def test_search_with_only_known_names_never_lists_fields():
     with patch("tools.search.get_client", return_value=mock_client):
         search.search("x", only=["summary"])
     mock_client.list_fields.assert_not_called()
+
+
+# ---- add_comment: gated, and once per marker
+
+def _comment_client(existing=()):
+    client = MagicMock()
+    client.config = JiraConfig(base_url="https://jira.example.com")
+    client.get_comments.return_value = list(existing)
+    client.add_comment.return_value = {"id": "9", "author": "Bot"}
+    return client
+
+
+def test_add_comment_is_gated_until_confirmed():
+    from tools import add_comment
+
+    client = _comment_client()
+    with patch("tools.add_comment.get_client", return_value=client):
+        out = add_comment.add_comment("PAY-1", "Working on it", marker="<!-- m:1 -->")
+    assert out["requires_confirmation"] and out["pending_action"]["body"].endswith("<!-- m:1 -->")
+    client.add_comment.assert_not_called()
+
+
+def test_add_comment_posts_with_the_marker_and_a_repeat_posts_nothing():
+    from tools import add_comment
+
+    client = _comment_client()
+    with patch("tools.add_comment.get_client", return_value=client):
+        posted = add_comment.add_comment("PAY-1", "Working on it", marker="<!-- m:1 -->", confirm=True)
+    assert posted["comment"]["id"] == "9" and client.add_comment.call_args.args[1].endswith("<!-- m:1 -->")
+    again = _comment_client([Comment("5", "Bot", "Working on it\n\n<!-- m:1 -->", None, None)])
+    with patch("tools.add_comment.get_client", return_value=again):
+        out = add_comment.add_comment("PAY-1", "Working on it", marker="<!-- m:1 -->", confirm=True)
+    assert out["skipped"] == "exists" and out["comment"]["id"] == "5"
+    again.add_comment.assert_not_called()
+
+
+def test_add_comment_needs_an_issue_and_a_body():
+    from tools import add_comment
+
+    with patch("tools.add_comment.get_client", return_value=_comment_client()):
+        assert add_comment.add_comment("", "x", confirm=True)["error"]["type"] == "invalid_input"
+        assert add_comment.add_comment("PAY-1", "  ", confirm=True)["error"]["type"] == "invalid_input"

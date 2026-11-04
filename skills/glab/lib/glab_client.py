@@ -12,6 +12,7 @@ Targets a self-hosted (or gitlab.com) instance's REST API v4 at
 
 from __future__ import annotations
 
+import base64
 import logging
 import threading
 from typing import Any, Dict, List, Optional
@@ -358,6 +359,84 @@ class GitLabClient:
 
     def delete_mr_note(self, project: str, mr_iid: int, discussion_id: str, note_id: int) -> None:
         self._request("DELETE", f"{self._discussion_path(project, mr_iid, discussion_id)}/notes/{int(note_id)}")
+
+    # ------------------------------------------------------------------
+    # Repository snapshot, commits and merge requests
+    # ------------------------------------------------------------------
+
+    def get_archive(self, project: str, ref: str, max_bytes: int) -> Dict[str, Any]:
+        """The repository at ``ref`` as a tar.gz, refused when it is larger than ``max_bytes``."""
+        base = self._project_path(project)
+        commit = self._request("GET", f"{base}/repository/commits/{quote(ref, safe='')}")
+        url = f"{self.config.base_url}{_API}{base}/repository/archive.tar.gz"
+        try:
+            response = self.session.request(
+                "GET", url, params={"sha": commit.get("id", ref)}, timeout=self.config.timeout_seconds, stream=True
+            )
+        except requests.exceptions.RequestException as exc:
+            raise GitLabApiError(f"Could not download the archive: {exc}") from exc
+        self._raise_for_status(response)
+        data = bytearray()
+        for chunk in response.iter_content(chunk_size=1 << 20):
+            data.extend(chunk)
+            if len(data) > max_bytes:
+                raise GitLabValidationError(
+                    f"The repository archive is larger than the {max_bytes // (1 << 20)} MB limit; raise max_archive_mb or trim the repository."
+                )
+        return {"ref": ref, "sha": commit.get("id", ""), "size": len(data), "format": "tar.gz",
+                "content_base64": base64.b64encode(bytes(data)).decode("ascii")}
+
+    def branch_exists(self, project: str, branch: str) -> bool:
+        try:
+            self._request("GET", f"{self._project_path(project)}/repository/branches/{quote(branch, safe='')}")
+            return True
+        except GitLabNotFoundError:
+            return False
+
+    def find_commit_with_marker(self, project: str, branch: str, marker: str) -> Optional[Dict[str, Any]]:
+        commits = self._request("GET", f"{self._project_path(project)}/repository/commits",
+                                params={"ref_name": branch, "per_page": 100})
+        return next((c for c in commits if marker in (c.get("message") or "")), None)
+
+    def create_commit(self, project: str, branch: str, start_branch: Optional[str], message: str,
+                      actions: List[Dict[str, Any]]) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"branch": branch, "commit_message": message, "actions": actions}
+        if start_branch and not self.branch_exists(project, branch):
+            body["start_branch"] = start_branch
+        data = self._request("POST", f"{self._project_path(project)}/repository/commits", json_body=body)
+        return {"id": data.get("id"), "short_id": data.get("short_id"), "title": data.get("title"), "web_url": data.get("web_url")}
+
+    def find_open_mr(self, project: str, source_branch: str, target_branch: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        params: Dict[str, Any] = {"state": "opened", "source_branch": source_branch}
+        if target_branch:
+            params["target_branch"] = target_branch
+        found = self._request("GET", f"{self._project_path(project)}/merge_requests", params=params)
+        return found[0] if found else None
+
+    def user_id_for(self, username: str) -> Optional[int]:
+        users = self._request("GET", "/users", params={"username": username})
+        return users[0]["id"] if users else None
+
+    def create_mr(self, project: str, source_branch: str, target_branch: str, title: str, description: str,
+                  assignee_id: Optional[int] = None, labels: Optional[List[str]] = None) -> Dict[str, Any]:
+        body: Dict[str, Any] = {"source_branch": source_branch, "target_branch": target_branch, "title": title,
+                                "description": description, "remove_source_branch": True}
+        if assignee_id:
+            body["assignee_id"] = assignee_id
+        if labels:
+            body["labels"] = ",".join(labels)
+        return self._request("POST", f"{self._project_path(project)}/merge_requests", json_body=body)
+
+    def update_mr(self, project: str, mr_iid: int, **fields: Any) -> Dict[str, Any]:
+        return self._request("PUT", self._mr_path(project, mr_iid), json_body=fields)
+
+    def reply_discussion(self, project: str, mr_iid: int, discussion_id: str, body: str) -> Dict[str, Any]:
+        return models.note(self._request("POST", f"{self._discussion_path(project, mr_iid, discussion_id)}/notes",
+                                         json_body={"body": body}))
+
+    def resolve_discussion(self, project: str, mr_iid: int, discussion_id: str, resolved: bool = True) -> Dict[str, Any]:
+        data = self._request("PUT", self._discussion_path(project, mr_iid, discussion_id), json_body={"resolved": resolved})
+        return models.discussion(data)
 
 
 _client_singleton: Optional[GitLabClient] = None

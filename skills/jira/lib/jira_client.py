@@ -685,6 +685,12 @@ class JiraClient:
         )
         return [self._build_comment(raw) for raw in raw_comments]
 
+    def add_comment(self, issue_key: str, body: str) -> Dict[str, Any]:
+        """Post a comment and return its id and author."""
+        self._require_issue_key(issue_key)
+        raw = self._request("POST", f"{self.API_V2}/issue/{issue_key}/comment", json_body={"body": body})
+        return {"id": str(raw.get("id", "")), "author": (raw.get("author") or {}).get("displayName")}
+
     def get_worklogs(self, issue_key: str, *, max_results: Optional[int] = None) -> List[Worklog]:
         """Fetch all worklogs recorded against an issue."""
         self._require_issue_key(issue_key)

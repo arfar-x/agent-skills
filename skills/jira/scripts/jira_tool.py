@@ -67,6 +67,7 @@ if _SKILL_ROOT not in sys.path:
 from lib.attachment_files import DEFAULT_MAX_BYTES, DEFAULT_READ_MAX_BYTES  # noqa: E402
 from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
+    add_comment,
     blockers,
     create_issue,
     delete_attachment,
@@ -156,6 +157,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = subparsers.add_parser("transition", help="Move an issue to a new status (write, gated)")
     _add_common(p, issue_key=True)
     p.add_argument("--status", required=True, help="Target status or transition name, e.g. Review")
+    p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
+
+    p = subparsers.add_parser("add_comment", help="Comment on an issue, once per marker (write, gated)")
+    _add_common(p, issue_key=True)
+    p.add_argument("--body", required=True, help="Comment text")
+    p.add_argument("--marker", help="A unique line appended to the comment; a comment already carrying it is not repeated")
     p.add_argument("--confirm", action="store_true", help="Only pass after the user has explicitly confirmed")
 
     p = subparsers.add_parser("worklog", help="Log time against an issue (write, gated)")
@@ -391,6 +398,8 @@ def dispatch(args: argparse.Namespace):
         return search.search(args.jql, max_results=args.max_results, fields=extra_fields, only=only)
     if args.tool == "transition":
         return transition.transition(args.issue_key, args.status, confirm=args.confirm)
+    if args.tool == "add_comment":
+        return add_comment.add_comment(args.issue_key, args.body, marker=args.marker, confirm=args.confirm)
     if args.tool == "worklog":
         return worklog.worklog(
             args.issue_key, args.duration, args.description, date=args.date, confirm=args.confirm

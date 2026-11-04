@@ -30,6 +30,13 @@ Usage:
         --discussion_id abc123 --note_id 7 --body "..." [--confirm]
     python scripts/glab_tool.py delete_mr_note --project group/repo --mr_iid 42 \\
         --discussion_id abc123 --note_id 7 [--confirm]
+    python scripts/glab_tool.py get_archive --project group/repo --ref main [--max_mb 50]
+    python scripts/glab_tool.py create_commit --project group/repo --branch ai/fix/X-1-slug --start_branch main \\
+        --message "..." --actions '[{"action":"update","file_path":"a.py","content":"..."}]' [--marker "..."] [--confirm]
+    python scripts/glab_tool.py ensure_mr --project group/repo --source_branch ai/fix/X-1-slug --target_branch main \\
+        --title "..." [--description "..."] [--assignee_username ana] [--confirm]
+    python scripts/glab_tool.py reply_discussion --project group/repo --mr_iid 42 --discussion_id abc123 --body "..." [--marker "..."] [--confirm]
+    python scripts/glab_tool.py resolve_discussion --project group/repo --mr_iid 42 --discussion_id abc123 [--confirm]
 
 Every subcommand prints JSON only and exits 0 on a handled error --
 failures are `{"error": {...}}` in the body. A non-zero exit means the
@@ -51,8 +58,11 @@ from lib.auth import ConfigurationError  # noqa: E402
 from tools import (  # noqa: E402
     add_mr_discussion,
     add_mr_note,
+    create_commit,
     delete_mr_note,
     edit_mr_note,
+    ensure_mr,
+    get_archive,
     get_file,
     get_mr,
     get_mr_diff,
@@ -61,6 +71,8 @@ from tools import (  # noqa: E402
     get_tree,
     list_branches,
     list_mrs,
+    reply_discussion,
+    resolve_discussion,
     search_projects,
     whoami,
 )
@@ -158,6 +170,42 @@ def build_parser() -> argparse.ArgumentParser:
     _add_note(p)
     p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
 
+    p = sub.add_parser("get_archive", help="Download the repository at a ref as a base64 tar.gz (read)")
+    _add_project(p)
+    p.add_argument("--ref", required=True, help="Branch, tag, or commit SHA")
+    p.add_argument("--max_mb", type=int, default=50, help="Refuse an archive larger than this many megabytes")
+
+    p = sub.add_parser("create_commit", help="Commit file changes to a branch, creating it from --start_branch (write, gated)")
+    _add_project(p)
+    p.add_argument("--branch", required=True, help="Branch to commit to")
+    p.add_argument("--start_branch", help="Where a new branch starts from (ignored when the branch exists)")
+    p.add_argument("--message", required=True, help="Commit message")
+    p.add_argument("--actions", required=True, help="JSON list of {action, file_path, content|content_base64[, previous_path]}")
+    p.add_argument("--marker", help="A unique line added to the message; a commit already carrying it is returned, not repeated")
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
+    p = sub.add_parser("ensure_mr", help="Open a merge request for a branch, or return the one already open (write, gated)")
+    _add_project(p)
+    p.add_argument("--source_branch", required=True)
+    p.add_argument("--target_branch", required=True)
+    p.add_argument("--title", required=True)
+    p.add_argument("--description", default="", help="Merge request description, GitLab Markdown")
+    p.add_argument("--assignee_username", help="GitLab username to assign")
+    p.add_argument("--labels", nargs="*", help="Labels to set")
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
+    p = sub.add_parser("reply_discussion", help="Reply in a merge request discussion thread (write, gated)")
+    _add_mr(p)
+    p.add_argument("--discussion_id", required=True, help="From get_mr_discussions")
+    p.add_argument("--body", required=True, help="Reply text, GitLab Markdown")
+    p.add_argument("--marker", help="A unique line appended to the body; a reply already carrying it is not repeated")
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
+    p = sub.add_parser("resolve_discussion", help="Mark a merge request discussion thread resolved (write, gated)")
+    _add_mr(p)
+    p.add_argument("--discussion_id", required=True, help="From get_mr_discussions")
+    p.add_argument("--confirm", action="store_true", help=_CONFIRM_HELP)
+
     return parser
 
 
@@ -193,6 +241,18 @@ def dispatch(args: argparse.Namespace):
         return edit_mr_note.edit_mr_note(args.mr_iid, args.discussion_id, args.note_id, args.body, args.project, args.confirm)
     if t == "delete_mr_note":
         return delete_mr_note.delete_mr_note(args.mr_iid, args.discussion_id, args.note_id, args.project, args.confirm)
+    if t == "get_archive":
+        return get_archive.get_archive(args.ref, args.project, args.max_mb)
+    if t == "create_commit":
+        return create_commit.create_commit(args.branch, args.message, args.actions, args.project, args.start_branch,
+                                           args.marker, args.confirm)
+    if t == "ensure_mr":
+        return ensure_mr.ensure_mr(args.source_branch, args.target_branch, args.title, args.description, args.project,
+                                   args.assignee_username, args.labels, args.confirm)
+    if t == "reply_discussion":
+        return reply_discussion.reply_discussion(args.mr_iid, args.discussion_id, args.body, args.project, args.marker, args.confirm)
+    if t == "resolve_discussion":
+        return resolve_discussion.resolve_discussion(args.mr_iid, args.discussion_id, args.project, args.confirm)
     raise AssertionError(f"Unhandled tool: {t}")  # unreachable: argparse enforces choices
 
 

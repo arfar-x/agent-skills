@@ -55,6 +55,7 @@ def mr_summary(m: Mapping[str, Any]) -> Dict[str, Any]:
         "target_branch": m.get("target_branch"),
         "updated_at": m.get("updated_at"),
         "web_url": m.get("web_url"),
+        "sha": m.get("sha"),           # the head commit: a poll can fire on new commits only, not on every comment
     }
 
 
