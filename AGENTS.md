@@ -77,20 +77,22 @@ Per toolset `<toolset>` (e.g. `jira`):
 **`skills/_shared/`** holds code more than one toolset needs -- e.g.
 `credentials/http.py`'s `Credential`/`BasicCredential`/`BearerCredential`
 types, used identically by any toolset authenticating a `requests.Session`
-(Jira today). A toolset that needs one of these files **symlinks** it
-into its own `lib/` (`ln -s ../../_shared/credentials/http.py
-skills/jira/lib/credentials.py`) rather than copying it -- one edit
-updates every consumer. This works under both consumption paths this
-repo supports: a direct `git clone` preserves the symlink natively, and
-`npx skills add --skill <name>`'s own installer (`vercel-labs/skills`)
-copies a symlinked file with `dereference: true` specifically to handle
-exactly this case (confirmed by reading its actual source, not assumed).
+(Jira today). A toolset that needs one of these files carries a **real copy** of it in
+its own `lib/` (e.g. `skills/jira/lib/credentials.py` is a copy of
+`_shared/credentials/http.py`); `_shared/` stays the single source of
+truth. Do not symlink: `npx skills add` copies only the skill's own
+directory and skips any symlink that resolves outside it
+(`SKILLS_SYMLINK_OUTSIDE_SKILL` in `vercel-labs/skills` 1.8.1), so a
+symlinked `lib/` file would be missing from every installed skill. Edit
+the file under `_shared/`, then run `make sync-shared`; `make
+check-shared` (and `scripts/tests/test_sync_shared.py`) fails if a copy
+is missing, is a symlink, or has drifted. A new consumer goes in
+`CONSUMERS` in `scripts/sync_shared.py`.
 **`skills/_shared/` must never contain a `SKILL.md`** -- both consumers
 above discover skills by walking for `SKILL.md`'s presence, so a
 directory without one is structurally invisible to either, not just
 conventionally excluded; `mcp-server/tests/test_registry.py` asserts
-this stays true. See `skills/_shared/README.md` for the full explanation,
-including the Windows `core.symlinks` caveat.
+this stays true. See `skills/_shared/README.md` for the full explanation.
 
 When changing behavior (auth, request handling, tool output shape) for
 a toolset, edit its `skills/<toolset>/lib/` or `skills/<toolset>/tools/`,

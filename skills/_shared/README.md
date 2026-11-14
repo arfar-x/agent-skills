@@ -2,9 +2,10 @@
 
 **This directory is not a skill and must never contain a `SKILL.md`.**
 
-It holds code that more than one toolset symlinks into its own `lib/`, so a
-fix or an addition lands once instead of being hand-copied into every
-toolset that needs it.
+It holds the source of code that more than one toolset needs. Each toolset
+keeps a real copy in its own `lib/`, written by `scripts/sync_shared.py`, so a
+fix or an addition lands once here and is propagated by one command instead of
+being hand-edited in every toolset.
 
 Both consumers this repo currently has visibility into discover skills by
 walking for `SKILL.md` presence, not by listing directory names under
@@ -42,21 +43,21 @@ text/
               # (description edits) and Confluence (page Markdown).
 ```
 
-A toolset that needs one of these files symlinks it into its own `lib/`,
-e.g.:
+A toolset that needs one of these files gets a copy in its own `lib/`.
+Register the pair in `CONSUMERS` in `scripts/sync_shared.py`, then:
 
 ```bash
-ln -s ../../_shared/credentials/http.py skills/jira/lib/credentials.py
-ln -s ../../_shared/attachments/files.py skills/jira/lib/attachment_files.py
-ln -s ../../_shared/text/patch.py skills/jira/lib/text_patch.py
+make sync-shared    # copy every shared file into its consumers' lib/
+make check-shared   # fail if a copy is missing, a symlink, or has drifted
 ```
 
-**Windows note:** if a checkout has `git config core.symlinks false` (some
-older Git-for-Windows setups without Developer Mode), a symlink materializes
-as a plain text file containing the target path instead of a real symlink --
-`credentials.py` would then be a one-line text file, not code. Enable
-Developer Mode (or run `git config core.symlinks true` before cloning) if
-you hit an import error here on Windows.
+**Why copies, not symlinks:** `npx skills add` installs a skill by copying
+only that skill's directory, and it skips any symlink that resolves outside
+it (`SKILLS_SYMLINK_OUTSIDE_SKILL`). A `lib/credentials.py` symlinked to
+`../../_shared/...` is therefore missing from the installed skill and the
+toolset fails on import. Real files install correctly, with no manual fix on
+the user's machine. Always edit the file here, never the copy; the copies are
+byte-identical and `scripts/tests/test_sync_shared.py` enforces it.
 
 A structurally different credential shape (e.g. a future `git`-the-CLI
 toolset, which needs SSH keys or a credential helper, not a value applied to

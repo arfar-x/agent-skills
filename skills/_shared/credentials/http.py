@@ -11,8 +11,8 @@ per-request by `mcp-server` on behalf of one specific caller behind a
 multi-user chat client. That indifference is the entire point: the same
 toolset code serves both.
 
-This module is symlinked, not copied, into every toolset that needs it
--- see `../README.md`. Keep it dependency-light and toolset-agnostic;
+This module is copied (by `scripts/sync_shared.py`) into every toolset that
+needs it -- see `../README.md`; edit this file, never the copies. Keep it dependency-light and toolset-agnostic;
 anything specific to one toolset's own env var names belongs in that
 toolset's own `lib/auth.py`, not here.
 """

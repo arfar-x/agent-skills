@@ -1,4 +1,4 @@
-.PHONY: help install-skill-deps skill-vendored-add skill-vendored-update skill-vendored-delete
+.PHONY: help sync-shared check-shared install-skill-deps skill-vendored-add skill-vendored-update skill-vendored-delete
 
 # Interpreter whose environment `install-skill-deps` installs into -- the one
 # your agent runs `python3 scripts/...` with. Not needed with `uv run`.
@@ -11,6 +11,10 @@ PIP_ARGS ?=
 help:
 	@echo "Skill dependencies (see README.md's 'Python dependencies' section):"
 	@echo "  make install-skill-deps [PYTHON=python3] [SKILLS_DIR=dir ...] [PIP_ARGS=...] [DRY_RUN=1]"
+	@echo ""
+	@echo "Shared lib files (see skills/_shared/README.md):"
+	@echo "  make sync-shared    # copy skills/_shared/* into each toolset's lib/"
+	@echo "  make check-shared   # fail if any copy has drifted"
 	@echo ""
 	@echo "Vendored-skill management (see README.md's 'Vendored skills' section):"
 	@echo "  make skill-vendored-add    <github-tree-url>"
@@ -27,6 +31,12 @@ install-skill-deps:
 		$(foreach d,$(SKILLS_DIR),--skills-dir "$(d)") \
 		$(if $(DRY_RUN),--dry-run) \
 		$(if $(strip $(PIP_ARGS)),-- $(PIP_ARGS))
+
+sync-shared:
+	@scripts/sync_shared.py
+
+check-shared:
+	@scripts/sync_shared.py --check
 
 skill-vendored-add:
 	@scripts/vendor_skill.sh add $(filter-out $@,$(MAKECMDGOALS))

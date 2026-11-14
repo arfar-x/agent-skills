@@ -141,32 +141,24 @@ flowchart LR
     APPLY --> REQ["requests.Session, authenticated"]
 ```
 
-### Why the shared module is a symlink, not a copy
+### Why each toolset carries a copy of the shared module
 
 `skills/_shared/credentials/http.py` holds the `Credential` types.
-`skills/jira/lib/credentials.py` is a **symlink** to it
-(`ln -s ../../_shared/credentials/http.py skills/jira/lib/credentials.py`),
-not a copy -- so the Confluence and GitLab toolsets (both of which
-authenticate a `requests.Session` the same way -- confirmed directly
-from GitLab's own docs that its API accepts `Authorization: Bearer
-<token>`, not just its `PRIVATE-TOKEN` header) can symlink the exact
-same file, and one fix updates every consumer at once.
+`skills/jira/lib/credentials.py` (and the Confluence and GitLab
+equivalents) is a byte-identical **copy** of it, written by
+`scripts/sync_shared.py` -- so the toolsets, which all authenticate a
+`requests.Session` the same way (GitLab's API accepts `Authorization:
+Bearer <token>`, not just its `PRIVATE-TOKEN` header), share one
+implementation, and one edit plus `make sync-shared` updates every
+consumer.
 
-This survives both ways this repo is consumed, verified against the
-real installer source, not assumed:
-
-- **A direct `git clone`** preserves the symlink natively -- nothing
-  special to do.
-- **`npx skills add --skill jira`** ([`vercel-labs/skills`](https://github.com/vercel-labs/skills))
-  does a real `git clone` of the whole repo into a temp directory (for
-  any repo not on its own fast-path allowlist, which this one isn't),
-  then extracts just the requested skill's directory with
-  `fs.cp(src, dest, { dereference: true })` -- Node's own "follow the
-  symlink and copy the real file" mode. The installer's own source
-  comment explains why: *"If the file is a symlink to elsewhere in a
-  remote skill, it may not resolve correctly once it has been copied to
-  the local location."* This is exactly `skills/jira/lib/credentials.py`'s
-  situation, handled on purpose by the tool's own authors.
+It is a copy rather than a symlink because of how the repo is consumed:
+`npx skills add --skill jira` ([`vercel-labs/skills`](https://github.com/vercel-labs/skills))
+copies only the requested skill's directory and skips any symlink that
+resolves outside it (`SKILLS_SYMLINK_OUTSIDE_SKILL`), so a symlink into
+`_shared/` would leave the installed skill without `credentials.py`.
+`make check-shared` and `scripts/tests/test_sync_shared.py` fail if a copy
+is missing, is a symlink, or has drifted from its source.
 
 **`skills/_shared/` can never itself be installed or discovered as a
 skill.** Both consumers above find skills by walking for `SKILL.md`'s
@@ -182,8 +174,9 @@ guarding it: one proving the general mechanism, one checking the real
 ### Adding this pattern to a new toolset
 
 1. If the new toolset authenticates an HTTP session the same way (Basic
-   or a bearer token), symlink the existing shared file:
-   `ln -s ../../_shared/credentials/http.py skills/<toolset>/lib/credentials.py`.
+   or a bearer token), add `skills/<toolset>/lib/credentials.py` to the
+   `credentials/http.py` entry in `scripts/sync_shared.py`'s `CONSUMERS`
+   and run `make sync-shared`.
    If it needs a genuinely different shape (see "Limits of `Credential`"
    below), that's a new file under `skills/_shared/credentials/`,
    not a variant crammed into `http.py`.
