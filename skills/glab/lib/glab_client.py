@@ -403,8 +403,38 @@ class GitLabClient:
         body: Dict[str, Any] = {"branch": branch, "commit_message": message, "actions": actions}
         if start_branch and not self.branch_exists(project, branch):
             body["start_branch"] = start_branch
+        else:
+            # The branch is already there (an earlier attempt pushed to it): the plan was made against the default branch, so
+            # say what is true on this branch instead of failing on "file already exists" / "file does not exist".
+            body["actions"] = self._fit_to_branch(project, branch, actions)
+            if not body["actions"]:
+                head = self._request("GET", f"{self._project_path(project)}/repository/commits/{quote(branch, safe='')}")
+                return {"id": head.get("id"), "short_id": head.get("short_id"), "title": head.get("title"), "web_url": head.get("web_url")}
         data = self._request("POST", f"{self._project_path(project)}/repository/commits", json_body=body)
         return {"id": data.get("id"), "short_id": data.get("short_id"), "title": data.get("title"), "web_url": data.get("web_url")}
+
+    def file_exists(self, project: str, file_path: str, ref: str) -> bool:
+        path = f"{self._project_path(project)}/repository/files/{quote(file_path.lstrip('/'), safe='')}"
+        try:
+            self._request("GET", path, params={"ref": ref})
+            return True
+        except GitLabNotFoundError:
+            return False
+
+    def _fit_to_branch(self, project: str, branch: str, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Make create/update/delete match what the branch holds: create of an existing file is an update, update of a missing
+        file is a create, delete of a missing file is dropped."""
+        fitted: List[Dict[str, Any]] = []
+        for item in actions:
+            kind = item.get("action")
+            if kind in ("create", "update", "delete"):
+                here = self.file_exists(project, item["file_path"], branch)
+                if kind == "delete" and not here:
+                    continue
+                if kind in ("create", "update"):
+                    item = {**item, "action": "update" if here else "create"}
+            fitted.append(item)
+        return fitted
 
     def find_open_mr(self, project: str, source_branch: str, target_branch: Optional[str] = None) -> Optional[Dict[str, Any]]:
         params: Dict[str, Any] = {"state": "opened", "source_branch": source_branch}
