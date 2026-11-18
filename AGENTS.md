@@ -341,6 +341,33 @@ These apply repo-wide, to every toolset, not just Jira:
   matters to a user or maintainer, never **how** it was implemented --
   the diff already shows how. A body that walks through functions,
   helpers, or steps is a sign it should be shorter.
+  - Commits are **atomic and independent**:
+    - Commit the whole change unit: everything that jointly caused a
+      change lands in one commit, and nothing unrelated lands with it.
+      A new action lands together with its `tools/` entry point, its
+      `build_parser()` subcommand, its thin `<toolset>-<action>/SKILL.md`
+      wrapper, the frontmatter it changes (`required_environment_variables`,
+      the `version:` bump), and its tests; an unrelated fix in another
+      toolset does not.
+    - Every commit must stand alone: checking out any commit must not
+      break anything. In this repo that means each touched toolset's
+      pytest suite passes and every documented CLI invocation runs. A
+      commit must not reference code, flags, or tools that do not exist
+      in it -- no `build_parser()` subcommand calling a `lib/` helper
+      that lands in a later commit, no `SKILL.md` documenting a flag the
+      CLI doesn't have yet, no `mcp-server` test expecting a tool that
+      isn't registered.
+    - Dependencies only flow forward: newer commits may build on older
+      ones; an older commit never depends on, references, or waits for a
+      change that lands later.
+    - Never mention non-existent things: no toolset, skill, action, or
+      MCP tool that isn't part of this repo or finalized in its
+      documentation -- not in commit messages, docs, code, or comments.
+    - Exception -- deliberate forward references: only when (a) the user
+      explicitly asks, or (b) you are intentionally preparing an
+      abstraction/interface that a known future feature will fill, may a
+      `TODO:` comment name a not-yet-existing capability. No other
+      forward references.
 
 - **Releases and skill versions follow [SemVer](https://semver.org)**
   (`MAJOR.MINOR.PATCH`). Two separate surfaces carry a version, both
