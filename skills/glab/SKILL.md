@@ -8,7 +8,7 @@ description: >-
   structured GitLab tools and reasoning over their JSON output, never by
   guessing or inventing repository, file, or MR content. Use whenever the
   user asks about a GitLab project, file, or merge request.
-version: 1.2.0
+version: 1.3.0
 metadata:
   category: software-development
   hermes:
