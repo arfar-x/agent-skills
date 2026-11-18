@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["requests>=2.31,<3", "urllib3>=1.26,<3"]
+# dependencies = [
+#   "requests>=2.31,<3",
+#   "urllib3>=1.26,<3",
+# ]
 # ///
 """Command-line dispatcher for the Sentry skill: prints exactly one JSON document, like every skill here.
 
