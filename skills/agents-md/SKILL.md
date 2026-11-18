@@ -24,7 +24,7 @@ description: >-
   to write/create/generate/update an AGENTS.md (or CLAUDE.md) file,
   onboard a coding agent onto a codebase, or document build/test/
   architecture/style conventions for agents working in a repo.
-version: 1.4.0
+version: 1.5.0
 metadata:
   category: software-development
   doc_type: agents-md
@@ -387,9 +387,12 @@ repo-wide.
   followed consistently in the code) -- not generic best-practice advice
   that would apply to any project in the language. Ask rather than
   guess when it isn't clearly one or the other.
-- **Commit / PR instructions** -- only if the project has a real,
-  checkable convention (a `CONTRIBUTING.md`, a commit-hook, a PR
-  template) -- link to it rather than restating it in full.
+- **Commit / PR instructions** -- the project's own real, checkable
+  convention (a `CONTRIBUTING.md`, a commit-hook, a PR template), linked
+  rather than restated in full. This section also carries this skill's
+  global source-control rule -- inlined by default (see "Global rules
+  (always on)") so every agent follows the same commit hygiene even when
+  the project has no existing commit convention of its own.
 - **Security / credential handling notes** -- only if there's a real
   rule an agent could otherwise get wrong (e.g. "credentials only from
   env vars, never hard-coded" -- state it if it's actually the
@@ -409,6 +412,38 @@ Setup commands, Testing instructions, Architecture, and Project map
 (when a monorepo split applies) are the sections most worth getting
 right -- ask rather than invent when you can't verify them. Everything
 else is genuinely optional per project.
+
+## Global rules (always on)
+
+This skill carries a fixed set of **global rules** that apply to *any*
+target repo, independent of that repo's own conventions -- not inferred
+from the target, and never invented on the fly. They live in **`RULES_*.md`
+files alongside this `SKILL.md`**, one per topic (today:
+`RULES_SOURCE_CONTROL.md`), each holding the canonical rule text. A
+`RULES_*.md` file is a source of truth this skill reads; it is not itself
+written into the target.
+
+- **Default -- inline into `AGENTS.md`.** When writing or updating a
+  target's `AGENTS.md`, read each applicable `RULES_*.md` and inline its
+  rule into the matching section of the file -- source-control rules go
+  under "Commit / PR instructions." Inlining keeps a short, high-frequency
+  rule always loaded by every agent that reads the file, which is the
+  reliable and actually-cheaper choice for a rule that applies to nearly
+  every commit. Read the `RULES_*.md` and inline it verbatim (trim only to
+  fit the section); don't restate or paraphrase the rule from memory.
+- **Opt-in -- separate rule files in the target.** Only when the user
+  explicitly asks for separate rule files, write the rule as a per-topic
+  `RULES_*.md` *in the target repo* and link to it from `AGENTS.md` (the
+  "link outward, summarize in one line" move from "The graph, not a
+  monolith") instead of inlining. That is the token-efficient shape for
+  bulk, topic-specific rules an agent only needs for a subset of its work
+  -- don't reach for it unprompted, and don't use it for a short rule the
+  agent needs on every commit (one that gets opened on every commit anyway
+  saves nothing and only adds a file this skill must then keep in place).
+- **The `RULES_*.md` set is the complete list.** Don't invent additional
+  global rules, and don't treat a target's own conventions as global. When
+  a new global rule is needed, it lands as a new `RULES_<TOPIC>.md` here,
+  not inline in `SKILL.md`.
 
 ## Style
 
