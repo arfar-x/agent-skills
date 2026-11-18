@@ -59,6 +59,18 @@ def test_create_commit_creates_the_branch_from_start_and_sends_encoded_content(m
     assert body["actions"][1]["encoding"] == "base64" and "encoding" not in body["actions"][0]
 
 
+def test_create_commit_on_a_branch_that_already_has_the_file_updates_it(mock_session):
+    mock_session.request.side_effect = [make_response(json_data=[]),                                  # no commit with the marker yet
+                                        make_response(json_data={"name": "ai/fix/X-1"}),              # the branch exists
+                                        make_response(json_data={"file_name": "a.py"}),               # src/a.py is there
+                                        make_response(status_code=404, json_data={"message": "404 File Not Found"}),  # b.bin is not
+                                        make_response(json_data={"id": "c2", "short_id": "c2", "title": "Fix", "web_url": "u"})]
+    out = create_commit.create_commit("ai/fix/X-1", "Fix", ACTIONS, project="g/p", start_branch="main", marker="m-2", confirm=True)
+    assert out["commit"]["id"] == "c2"
+    sent = mock_session.request.call_args.kwargs["json"]
+    assert "start_branch" not in sent and [a["action"] for a in sent["actions"]] == ["update", "create"]
+
+
 def test_create_commit_with_a_marker_already_committed_commits_nothing(mock_session):
     mock_session.request.side_effect = [make_response(json_data=[{"id": "old", "short_id": "old", "title": "Fix", "message": "Fix\n\nm-1"}])]
     out = create_commit.create_commit("ai/fix/X-1", "Fix", ACTIONS, project="g/p", marker="m-1", confirm=True)
